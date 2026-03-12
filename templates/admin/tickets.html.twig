@@ -1,0 +1,79 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Залоговые билеты - Админ-панель{% endblock %}
+
+{% block navbar %}
+{{ include('components/_admin_navbar.html.twig') }}
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid my-4">
+    <h1 class="mb-4">Залоговые билеты</h1>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Внешний ID</th>
+                            <th>Номер</th>
+                            <th>Клиент</th>
+                            <th>Филиал</th>
+                            <th>Сумма займа</th>
+                            <th>Текущий долг</th>
+                            <th>Дата выдачи</th>
+                            <th>Дата возврата</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ticket in tickets %}
+                        <tr>
+                            <td>{{ ticket.externalId }}</td>
+                            <td><strong>{{ ticket.ticketNumber }}</strong></td>
+                            <td>
+                                <a href="{{ path('app_admin_client_view', {id: ticket.client.id}) }}">
+                                    {{ ticket.client.fullName }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if ticket.workplace %}
+                                    <a href="{{ path('app_admin_workplace_view', {id: ticket.workplace.id}) }}" class="badge bg-info text-decoration-none">
+                                        {{ ticket.workplace.displayTitle }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ ticket.loanAmount|number_format(2, '.', ' ') }} ₽</td>
+                            <td>{{ ticket.currentDebt|number_format(2, '.', ' ') }} ₽</td>
+                            <td>{{ ticket.issueDate|date('d.m.Y') }}</td>
+                            <td>{{ ticket.dueDate|date('d.m.Y') }}</td>
+                            <td>
+                                {% if ticket.isOpen %}
+                                    <span class="badge bg-success">{{ ticket.statusLabel }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ ticket.statusLabel }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ path('app_admin_ticket_view', {workplaceId: ticket.workplace.id, ticketNumber: ticket.ticketNumber}) }}"
+                                   class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye"></i> Просмотр
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="10" class="text-center">Залоговые билеты не найдены</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

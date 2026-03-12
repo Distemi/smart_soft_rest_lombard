@@ -1,0 +1,81 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Мой профиль - Личный кабинет
+{% endblock %}
+
+{% block navbar %}
+	{{ include('components/_client_navbar.html.twig') }}
+{% endblock %}
+
+{% block body %}
+	<div class="container my-4">
+		<div class="row justify-content-center">
+			<div class="col-md-8">
+				<div class="card">
+					<div class="card-header bg-primary text-white">
+						<h5 class="mb-0">Профиль клиента</h5>
+					</div>
+					<div class="card-body">
+						<div class="row mb-3">
+							<div class="col-md-12">
+								<p class="mb-2">
+									<strong>ФИО:</strong>
+								</p>
+								<h4>{{ client.fullName }}</h4>
+							</div>
+						</div>
+
+						{% if client.phone %}
+							<div class="row mb-3">
+								<div class="col-md-12">
+									<p class="mb-2">
+										<strong>Телефон:</strong>
+									</p>
+									<p>{{ client.phone|format_phone }}</p>
+								</div>
+							</div>
+						{% endif %}
+
+						{% if client.email %}
+							<div class="row mb-3">
+								<div class="col-md-12">
+									<p class="mb-2">
+										<strong>Email:</strong>
+									</p>
+									<p>{{ client.email }}</p>
+								</div>
+							</div>
+						{% endif %}
+
+						{% if client.passportSeries or client.passportNumber %}
+							<div class="row mb-3">
+								<div class="col-md-12">
+									<p class="mb-2">
+										<strong>Паспортные данные:</strong>
+									</p>
+									<p>{{ client.passportSeries }}
+										{{ client.passportNumber }}</p>
+								</div>
+							</div>
+						{% endif %}
+
+						<div class="row">
+							<div class="col-md-12">
+								<p class="mb-2">
+									<strong>Количество залоговых билетов:</strong>
+								</p>
+								<p class="h5 text-primary">{{ client.pawnTickets|length }}</p>
+							</div>
+						</div>
+					</div>
+					<div class="card-footer">
+						<a href="{{ path('app_tickets_list') }}" class="btn btn-primary">
+							<i class="bi bi-arrow-left"></i>
+							Вернуться к билетам
+						</a>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+{% endblock %}

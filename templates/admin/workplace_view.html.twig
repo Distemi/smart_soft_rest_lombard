@@ -1,0 +1,101 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Филиал "{{ workplace.displayTitle }}" - Админ-панель{% endblock %}
+
+{% block navbar %}
+{{ include('components/_admin_navbar.html.twig') }}
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid my-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('app_admin_workplaces') }}">Филиалы</a></li>
+            <li class="breadcrumb-item active">{{ workplace.displayTitle }}</li>
+        </ol>
+    </nav>
+
+    <h1 class="mb-4">Филиал: {{ workplace.displayTitle }}</h1>
+
+    <div class="row g-4 align-items-start">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Информация о филиале</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>ID:</strong> {{ workplace.id }}</p>
+                    <p><strong>Внешний ID:</strong> {{ workplace.externalId }}</p>
+                    <p><strong>Заголовок:</strong> {{ workplace.title ?? '-' }}</p>
+                    <p><strong>Город:</strong> {{ workplace.city ?? '-' }}</p>
+                    <p><strong>Адрес:</strong> {{ workplace.address ?? '-' }}</p>
+                    <p><strong>Телефон:</strong> {{ workplace.phone|format_phone }}</p>
+                    <p>
+                        <strong>Статус:</strong>
+                        {% if workplace.isActive %}
+                            <span class="badge bg-success">Активен</span>
+                        {% else %}
+                            <span class="badge bg-danger">Неактивен</span>
+                        {% endif %}
+                    </p>
+                    <p><strong>Создан:</strong> {{ workplace.createdAt|date('d.m.Y H:i') }}</p>
+                    <p><strong>Обновлён:</strong> {{ workplace.updatedAt|date('d.m.Y H:i') }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Клиенты ({{ uniqueClientsCount }})</h5>
+                </div>
+                <div class="card-body">
+                    {% set uniqueClients = workplace.uniqueClients %}
+                    {% if uniqueClients|length > 0 %}
+                        <div class="list-group">
+                            {% for client in uniqueClients|slice(0, 20) %}
+                                <a href="{{ path('app_admin_client_view', {id: client.id}) }}" class="list-group-item list-group-item-action">
+                                    {{ client.fullName }}
+                                </a>
+                            {% endfor %}
+                        </div>
+                        {% if uniqueClients|length > 20 %}
+                            <p class="text-muted small mt-2 mb-0">Показаны первые 20 из {{ uniqueClients|length }}</p>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted mb-0">Клиенты отсутствуют</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Билеты ({{ workplace.pawnTickets|length }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if workplace.pawnTickets|length > 0 %}
+                        <div class="list-group">
+                            {% for ticket in workplace.pawnTickets|slice(0, 20) %}
+                                <a href="{{ path('app_admin_ticket_view', {workplaceId: ticket.workplace.id, ticketNumber: ticket.ticketNumber}) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    <span>{{ ticket.ticketNumber }}</span>
+                                    {% if ticket.isOpen %}
+                                        <span class="badge bg-success">{{ ticket.statusLabel }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ ticket.statusLabel }}</span>
+                                    {% endif %}
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">Билеты отсутствуют</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <a href="{{ path('app_admin_workplaces') }}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Назад к списку филиалов
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Вход в админку - СмартЛомбард{% endblock %}
+
+{% block body %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <h1 class="h3 mb-3 fw-bold">Административная панель</h1>
+                    </div>
+
+                    {% if error %}
+                        <div class="alert alert-danger">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+                    {% endif %}
+
+                    {{ form_start(form) }}
+                        {{ form_row(form['_username']) }}
+                        {{ form_row(form['_password']) }}
+
+                        <button class="btn btn-primary w-100" type="submit">
+                            Войти
+                        </button>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

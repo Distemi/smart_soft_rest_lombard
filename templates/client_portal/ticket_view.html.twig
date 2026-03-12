@@ -1,0 +1,172 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Залоговый билет {{ ticket.ticketNumber }} - Личный кабинет{% endblock %}
+
+{% block navbar %}
+{{ include('components/_client_navbar.html.twig') }}
+{% endblock %}
+
+{% block body %}
+<div class="container my-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ path('app_tickets_list') }}">Мои билеты</a></li>
+            <li class="breadcrumb-item active">{{ ticket.ticketNumber }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Залоговый билет № {{ ticket.ticketNumber }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Дата выдачи:</strong></p>
+                            <p>{{ ticket.issueDate|date('d.m.Y') }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Дата возврата:</strong></p>
+                            <p>{{ ticket.dueDate|date('d.m.Y') }}</p>
+                        </div>
+                    </div>
+
+                    {% if ticket.workplace %}
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <p class="mb-2"><strong>Филиал:</strong></p>
+                            <p><span class="badge bg-info fs-6">{{ ticket.workplace.displayTitle }}</span></p>
+                            {% if ticket.workplace.address %}
+                                <p class="text-muted small mb-0"><i class="bi bi-geo-alt"></i> {{ ticket.workplace.address }}</p>
+                            {% endif %}
+                            {% if ticket.workplace.phone %}
+                                <p class="text-muted small"><i class="bi bi-telephone"></i> {{ ticket.workplace.phone|format_phone }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Сумма займа:</strong></p>
+                            <p class="h5 text-primary">{{ ticket.loanAmount|number_format(2, '.', ' ') }} ₽</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Текущий долг:</strong></p>
+                            <p class="h5 text-danger">{{ ticket.currentDebt|number_format(2, '.', ' ') }} ₽</p>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Оценочная стоимость:</strong></p>
+                            <p>{{ ticket.pledgeAmount|number_format(2, '.', ' ') }} ₽</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Процентная ставка:</strong></p>
+                            <p>{{ ticket.interestRate }}%</p>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12">
+                            <p class="mb-2"><strong>Статус:</strong></p>
+                            <p>
+                                {% if ticket.isOpen %}
+                                    <span class="badge bg-success fs-6">{{ ticket.statusLabel }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6">{{ ticket.statusLabel }}</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if ticket.pawnGoods|length > 0 %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Предметы залога</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Наименование</th>
+                                    <th>Категория</th>
+                                    <th>Оценочная стоимость</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in ticket.pawnGoods %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ item.name }}</strong>
+                                        {% if item.description %}
+                                            <br><small class="text-muted">{{ item.description }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{% if item.category %}{{ item.category.name }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                                    <td>{{ item.estimatedValue|number_format(2, '.', ' ') }} ₽</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if ticket.payments|length > 0 %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">История платежей</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Сумма</th>
+                                    <th>Тип платежа</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in ticket.payments %}
+                                <tr>
+                                    <td>{{ payment.paymentDate|date('d.m.Y H:i') }}</td>
+                                    <td>{{ payment.amount|number_format(2, '.', ' ') }} ₽</td>
+                                    <td>{{ payment.paymentType }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Клиент</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>ФИО:</strong><br>{{ client.fullName }}</p>
+                    {% if client.phone %}
+                        <p><strong>Телефон:</strong><br>{{ client.phone|format_phone }}</p>
+                    {% endif %}
+                    {% if client.email %}
+                        <p><strong>Email:</strong><br>{{ client.email }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

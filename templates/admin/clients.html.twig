@@ -1,0 +1,57 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Клиенты - Админ-панель{% endblock %}
+
+{% block navbar %}
+{{ include('components/_admin_navbar.html.twig') }}
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid my-4">
+    <h1 class="mb-4">Клиенты</h1>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>ФИО</th>
+                            <th>Телефон</th>
+                            <th>Email</th>
+                            <th>Кол-во билетов</th>
+                            <th>Дата создания</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for client in clients %}
+                        <tr>
+                            <td>{{ client.id }}</td>
+                            <td><strong>{{ client.fullName }}</strong></td>
+                            <td>{{ client.phone|format_phone }}</td>
+                            <td>{{ client.email ?? '-' }}</td>
+                            <td>
+                                <span class="badge bg-primary">{{ client.pawnTickets|length }}</span>
+                            </td>
+                            <td>{{ client.createdAt|date('d.m.Y H:i') }}</td>
+                            <td>
+                                <a href="{{ path('app_admin_client_view', {id: client.id}) }}" 
+                                   class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye"></i> Просмотр
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center">Клиенты не найдены</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

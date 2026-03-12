@@ -1,0 +1,87 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Главная - Админ-панель{% endblock %}
+
+{% block navbar %}
+{{ include('components/_admin_navbar.html.twig') }}
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid my-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Панель управления</h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title">Всего клиентов</h5>
+                            <p class="display-4">{{ total_clients }}</p>
+                        </div>
+                        <div>
+                            <i class="bi bi-people display-1 opacity-50"></i>
+                        </div>
+                    </div>
+                    <a href="{{ path('app_admin_clients') }}" class="btn btn-light btn-sm">Просмотр</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title">Открытых билетов</h5>
+                            <p class="display-4">{{ open_tickets }}</p>
+                        </div>
+                        <div>
+                            <i class="bi bi-receipt display-1 opacity-50"></i>
+                        </div>
+                    </div>
+                    <a href="{{ path('app_admin_tickets') }}" class="btn btn-light btn-sm">Просмотр</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title">Всего билетов</h5>
+                            <p class="display-4">{{ total_tickets }}</p>
+                        </div>
+                        <div>
+                            <i class="bi bi-file-earmark-text display-1 opacity-50"></i>
+                        </div>
+                    </div>
+                    <a href="{{ path('app_admin_tickets') }}" class="btn btn-light btn-sm">Просмотр</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Быстрые действия</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2 d-md-flex">
+                        <a href="{{ path('app_admin_clients') }}" class="btn btn-primary">Управление клиентами</a>
+                        <a href="{{ path('app_admin_tickets') }}" class="btn btn-success">Управление билетами</a>
+                        <a href="{{ path('app_admin_api_logs') }}" class="btn btn-info">Просмотр логов API</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

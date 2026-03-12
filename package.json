@@ -1,0 +1,29 @@
+{
+    "name": "smartlombard-rest-api",
+    "version": "0.2.0",
+    "description": "SmartLombard REST API Integration",
+    "private": true,
+    "license": "MIT",
+    "scripts": {
+        "dev-server": "encore dev-server",
+        "dev": "encore dev",
+        "watch": "encore dev --watch",
+        "build": "encore production --progress"
+    },
+    "devDependencies": {
+        "@babel/core": "^7.23.0",
+        "@babel/preset-env": "^7.23.0",
+        "@symfony/webpack-encore": "^5.1.0",
+        "core-js": "^3.38.0",
+        "css-loader": "^6.8.0",
+        "file-loader": "^6.2.0",
+        "regenerator-runtime": "^0.14.0",
+        "webpack": "^5.89.0",
+        "webpack-cli": "^5.1.0"
+    },
+    "dependencies": {
+        "@popperjs/core": "^2.11.8",
+        "bootstrap": "^5.3.2",
+        "bootstrap-icons": "^1.11.3"
+    }
+}

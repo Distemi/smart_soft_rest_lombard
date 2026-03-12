@@ -1,0 +1,108 @@
+@import "~bootstrap/dist/css/bootstrap.min.css";
+@import "~bootstrap-icons/font/bootstrap-icons.css";
+
+:root {
+    --ss-bg: #fffffe;
+    --ss-surface: #e2ebed;
+    --ss-nav: #2d78a3;
+    --ss-nav-hover: #1f6086;
+    --ss-text: #153546;
+}
+
+:root,
+[data-bs-theme="light"] {
+    --bs-primary: #2d78a3;
+    --bs-primary-rgb: 45, 120, 163;
+    --bs-link-color: #2d78a3;
+    --bs-link-hover-color: #1f6086;
+    --bs-body-bg: #fffffe;
+    --bs-body-color: #153546;
+    --bs-light-bg-subtle: #e2ebed;
+    --bs-border-color: #c3d5db;
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    background-color: var(--ss-bg);
+    color: var(--ss-text);
+}
+
+.content-wrapper {
+    flex: 1 0 auto;
+    padding-bottom: 0.5rem;
+}
+
+.card,
+.table,
+.list-group-item,
+.modal-content,
+.dropdown-menu {
+    background-color: var(--ss-surface);
+    border-color: #c3d5db;
+}
+
+.table {
+    --bs-table-bg: var(--ss-surface);
+    --bs-table-striped-bg: #d7e4e8;
+    --bs-table-hover-bg: #cddde3;
+    --bs-table-border-color: #c3d5db;
+    color: var(--ss-text);
+}
+
+.bg-primary,
+.bg-dark,
+.navbar {
+    background-color: var(--ss-nav) !important;
+}
+
+.navbar .navbar-brand,
+.navbar .nav-link,
+.navbar .navbar-text,
+.navbar .btn-link {
+    color: #f5fbff;
+}
+
+.navbar .nav-link.active,
+.navbar .nav-link:hover,
+.navbar .navbar-brand:hover {
+    color: #ffffff;
+}
+
+.btn-primary {
+    --bs-btn-bg: #2d78a3;
+    --bs-btn-border-color: #2d78a3;
+    --bs-btn-hover-bg: #1f6086;
+    --bs-btn-hover-border-color: #1f6086;
+    --bs-btn-active-bg: #1a5373;
+    --bs-btn-active-border-color: #1a5373;
+}
+
+.form-control,
+.form-select {
+    background-color: #f9fcfd;
+    border-color: #afc6ce;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #2d78a3;
+    box-shadow: 0 0 0 0.2rem rgba(45, 120, 163, 0.2);
+}
+
+.bg-light,
+footer {
+    background-color: var(--ss-surface) !important;
+}
+
+.site-footer {
+    flex-shrink: 0;
+    clear: both;
+    border-top: 1px solid #c3d5db;
+}

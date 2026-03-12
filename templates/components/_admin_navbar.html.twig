@@ -1,0 +1,51 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{ path('app_admin_dashboard') }}">
+            Админ-панель
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link {% if app.current_route == 'app_admin_dashboard' %}active{% endif %}"
+                       href="{{ path('app_admin_dashboard') }}">
+                        Панель управления
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if app.current_route starts with 'app_admin_client' %}active{% endif %}"
+                       href="{{ path('app_admin_clients') }}">
+                        Клиенты
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if app.current_route starts with 'app_admin_ticket' %}active{% endif %}"
+                       href="{{ path('app_admin_tickets') }}">
+                        Залоговые билеты
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if app.current_route starts with 'app_admin_workplace' %}active{% endif %}"
+                       href="{{ path('app_admin_workplaces') }}">
+                        Филиалы
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if app.current_route == 'app_admin_api_logs' %}active{% endif %}"
+                       href="{{ path('app_admin_api_logs') }}">
+                        API Логи
+                    </a>
+                </li>
+            </ul>
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ path('app_admin_logout') }}">
+                        Выход
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

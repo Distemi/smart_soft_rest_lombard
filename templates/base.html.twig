@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta name="description" content="Интеграционный портал СмартЛомбард: личный кабинет клиента.">
+		<meta name="keywords" content="СмартЛомбард, ломбард, личный кабинет, админка, залоговые билеты">
+		<meta name="author" content="Distemi">
+		<meta name="robots" content="noindex, nofollow">
+		<meta name="referrer" content="strict-origin-when-cross-origin">
+		<meta name="format-detection" content="telephone=no, date=no, email=no, address=no">
+		<meta name="theme-color" content="#2d78a3">
+		<meta name="color-scheme" content="light only">
+
+		<meta property="og:type" content="website">
+		<meta property="og:locale" content="ru_RU">
+		<meta property="og:site_name" content="СмартЛомбард интеграция">
+		<meta property="og:title" content="{% block og_title %}Портал СмартЛомбард-интеграция{% endblock %}">
+		<meta property="og:description" content="{% block og_description %}Личный кабинет клиента СмартЛомбард.{% endblock %}">
+		<title>
+			{% block title %}
+				Портал СмартЛомбард-интеграция
+			{% endblock %}
+		</title>
+		<link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+
+		{% block stylesheets %}
+			{{ encore_entry_link_tags('app') }}
+		{% endblock %}
+	</head>
+	<body>
+		{% block navbar %}{% endblock %}
+
+		<main class="content-wrapper">
+		{% block body %}{% endblock %}
+		</main>
+
+		<footer class="site-footer py-3 bg-light">
+			<div class="container text-center text-muted">
+				<small>
+					&copy;
+					{{ 'now'|date('Y') }}
+					СмартЛомард интеграция. Все права защищены.
+																|
+					{{ (("now"|date("U.u") - app.request.server.get("REQUEST_TIME_FLOAT")))|number_format(3, '.', '') }}
+					сек.
+				</small>
+			</div>
+		</footer>
+		{% block javascripts %}
+			{{ encore_entry_script_tags('app') }}
+		{% endblock %}
+	</body>
+</html>
