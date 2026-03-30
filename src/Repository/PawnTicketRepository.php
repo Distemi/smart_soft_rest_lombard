@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\PawnTicket;
 use App\Entity\Client;
+use App\Entity\Workplace;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -30,7 +31,7 @@ class PawnTicketRepository extends ServiceEntityRepository
             ->where('pt.client = :client')
             ->andWhere('pt.status IN (:statuses)')
             ->setParameter('client', $client)
-            ->setParameter('statuses', [2, 3, 4])
+            ->setParameter('statuses', PawnTicket::OPEN_STATUSES)
             ->orderBy('pt.issueDate', 'DESC')
             ->getQuery()
             ->getResult();
@@ -40,7 +41,7 @@ class PawnTicketRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('pt')
             ->where('pt.status IN (:statuses)')
-            ->setParameter('statuses', [2, 3, 4])
+            ->setParameter('statuses', PawnTicket::OPEN_STATUSES)
             ->orderBy('pt.issueDate', 'DESC')
             ->getQuery()
             ->getResult();
@@ -60,11 +61,25 @@ class PawnTicketRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('pt')
             ->addSelect('CASE WHEN pt.status IN (:openStatuses) THEN 0 ELSE 1 END AS HIDDEN sortOrder')
-            ->setParameter('openStatuses', [2, 3, 4])
+            ->setParameter('openStatuses', PawnTicket::OPEN_STATUSES)
             ->orderBy('sortOrder', 'ASC')
             ->addOrderBy('pt.issueDate', 'DESC')
             ->getQuery()
             ->getResult();
+    }
+
+    public function findByWorkplaceMissingTicketNumbers(Workplace $workplace, array $ticketNumbers): array
+    {
+        $qb = $this->createQueryBuilder('pt')
+            ->where('pt.workplace = :workplace')
+            ->setParameter('workplace', $workplace);
+
+        if ($ticketNumbers !== []) {
+            $qb->andWhere('pt.ticketNumber NOT IN (:ticketNumbers)')
+                ->setParameter('ticketNumbers', $ticketNumbers);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     public function save(PawnTicket $pawnTicket, bool $flush = false): void

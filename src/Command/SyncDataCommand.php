@@ -38,10 +38,14 @@ class SyncDataCommand extends Command
                     ['Обновлено категорий', $stats['categories_updated']],
                     ['Создано филиалов', $stats['workplaces_created']],
                     ['Обновлено филиалов', $stats['workplaces_updated']],
+                    ['Удалено филиалов', $stats['workplaces_deleted']],
+                    ['Деактивировано филиалов', $stats['workplaces_deactivated']],
                     ['Создано клиентов', $stats['clients_created']],
                     ['Обновлено клиентов', $stats['clients_updated']],
+                    ['Удалено клиентов', $stats['clients_deleted']],
                     ['Создано билетов', $stats['tickets_created']],
                     ['Обновлено билетов', $stats['tickets_updated']],
+                    ['Удалено билетов', $stats['tickets_deleted']],
                     ['Синхронизировано имущества', $stats['items_synced']],
                 ]
             );

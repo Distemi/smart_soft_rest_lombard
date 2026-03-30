@@ -27,12 +27,6 @@ class Schedule implements ScheduleProviderInterface
                     '0 1 * * *',
                     new RunCommandMessage('app:sync-data')
                 )
-            )
-            ->add(
-                RecurringMessage::cron(
-                    '0 2 * * 0',
-                    new RunCommandMessage('app:cleanup-logs --days=30')
-                )
             );
     }
 }

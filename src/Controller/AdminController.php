@@ -5,9 +5,7 @@ namespace App\Controller;
 use App\Repository\ClientRepository;
 use App\Repository\WorkplaceRepository;
 use App\Repository\PawnTicketRepository;
-use App\Repository\ApiLogRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -112,22 +110,4 @@ class AdminController extends AbstractController
         ]);
     }
 
-    #[Route('/api-logs', name: 'app_admin_api_logs', methods: ['GET'])]
-    public function apiLogs(Request $request, ApiLogRepository $apiLogRepository): Response
-    {
-        $perPage = 50;
-        $requestedPage = max(1, $request->query->getInt('page', 1));
-        $totalLogs = $apiLogRepository->getTotalCount();
-        $totalPages = max(1, (int) ceil($totalLogs / $perPage));
-        $page = min($requestedPage, $totalPages);
-        $logs = $apiLogRepository->findPaginatedOrderedByCreatedAt($page, $perPage);
-
-        return $this->render('admin/api_logs.html.twig', [
-            'logs' => $logs,
-            'page' => $page,
-            'perPage' => $perPage,
-            'totalLogs' => $totalLogs,
-            'totalPages' => $totalPages,
-        ]);
-    }
 }

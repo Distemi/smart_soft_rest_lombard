@@ -53,10 +53,14 @@ class DataSyncService
         $stats = [
             'workplaces_created' => 0,
             'workplaces_updated' => 0,
+            'workplaces_deleted' => 0,
+            'workplaces_deactivated' => 0,
             'clients_created' => 0,
             'clients_updated' => 0,
+            'clients_deleted' => 0,
             'tickets_created' => 0,
             'tickets_updated' => 0,
+            'tickets_deleted' => 0,
             'items_synced' => 0,
             'categories_created' => 0,
             'categories_updated' => 0,
@@ -64,7 +68,8 @@ class DataSyncService
         ];
 
         $this->syncCategories($stats);
-        $this->syncWorkplaces($stats);
+        $activeExternalIds = $this->syncWorkplaces($stats);
+        $this->cleanupDeletedWorkplaces($activeExternalIds, $stats);
         $workplaces = $this->workplaceRepository->findAllActive();
 
         foreach ($workplaces as $workplace) {
@@ -82,6 +87,8 @@ class DataSyncService
                 ]);
             }
         }
+
+        $this->cleanupOrphanClients($stats);
 
         $this->entityManager->flush();
 
@@ -123,13 +130,15 @@ class DataSyncService
         }
     }
 
-    private function syncWorkplaces(array &$stats): void
+    private function syncWorkplaces(array &$stats): array
     {
         try {
             $workplaces = $this->apiService->getWorkplaces();
+            $activeExternalIds = [];
 
             foreach ($workplaces as $workplaceData) {
                 $externalId = (int) $workplaceData['id'];
+                $activeExternalIds[] = $externalId;
                 $workplace = $this->workplaceRepository->findByExternalId($externalId);
 
                 if (!$workplace) {
@@ -151,9 +160,11 @@ class DataSyncService
             }
 
             $this->entityManager->flush();
+            return array_values(array_unique($activeExternalIds));
         } catch (Exception $e) {
             $stats['errors'][] = 'Ошибка синхронизации workplaces: ' . $e->getMessage();
             $this->logger->error('Ошибка синхронизации workplaces', ['error' => $e->getMessage()]);
+            return [];
         }
     }
 
@@ -182,6 +193,57 @@ class DataSyncService
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+
+        $this->cleanupDeletedTickets($workplace, $tickets, $stats);
+    }
+
+    private function cleanupDeletedWorkplaces(array $activeExternalIds, array &$stats): void
+    {
+        $removedWorkplaces = $this->workplaceRepository->findByExternalIdsNotIn($activeExternalIds);
+
+        foreach ($removedWorkplaces as $workplace) {
+            if ($workplace->getPawnTickets()->count() === 0) {
+                $this->entityManager->remove($workplace);
+                $stats['workplaces_deleted']++;
+                continue;
+            }
+
+            if ($workplace->isActive()) {
+                $workplace->setIsActive(false)
+                    ->setUpdatedAt(new DateTime());
+                $this->entityManager->persist($workplace);
+                $stats['workplaces_deactivated']++;
+            }
+        }
+    }
+
+    private function cleanupDeletedTickets(Workplace $workplace, array $tickets, array &$stats): void
+    {
+        $actualTicketNumbers = [];
+        foreach ($tickets as $ticketData) {
+            $ticketNumber = trim((string) ($ticketData['document_number'] ?? ''));
+            if ($ticketNumber !== '') {
+                $actualTicketNumbers[] = $ticketNumber;
+            }
+        }
+
+        $actualTicketNumbers = array_values(array_unique($actualTicketNumbers));
+        $staleTickets = $this->pawnTicketRepository->findByWorkplaceMissingTicketNumbers($workplace, $actualTicketNumbers);
+
+        foreach ($staleTickets as $staleTicket) {
+            $this->entityManager->remove($staleTicket);
+            $stats['tickets_deleted']++;
+        }
+    }
+
+    private function cleanupOrphanClients(array &$stats): void
+    {
+        $orphanClients = $this->clientRepository->findClientsWithoutTickets();
+
+        foreach ($orphanClients as $client) {
+            $this->entityManager->remove($client);
+            $stats['clients_deleted']++;
         }
     }
 
@@ -310,14 +372,13 @@ class DataSyncService
                         'ticket_number' => $ticketNumber
                     ]);
                 } else {
-                    foreach ($ticket->getPawnGoods()->toArray() as $oldGood) {
-                        $ticket->removePawnGood($oldGood);
-                    }
-
+                    $existingGoods = array_values($ticket->getPawnGoods()->toArray());
                     $addedCount = 0;
-                    foreach ($goods as $goodData) {
+
+                    foreach ($goods as $index => $goodData) {
                         try {
-                            $this->syncPawnGood($ticket, $goodData);
+                            $existingGood = $existingGoods[$index] ?? null;
+                            $this->syncPawnGood($ticket, $goodData, $existingGood);
                             $stats['items_synced']++;
                             $addedCount++;
                         } catch (Exception $goodError) {
@@ -332,6 +393,10 @@ class DataSyncService
                                 'error' => $goodError->getMessage()
                             ]);
                         }
+                    }
+
+                    for ($index = count($goods); $index < count($existingGoods); $index++) {
+                        $ticket->removePawnGood($existingGoods[$index]);
                     }
                     
                     $this->logger->info('Синхронизировано предметов для билета', [
@@ -399,9 +464,13 @@ class DataSyncService
         return $client;
     }
 
-    private function syncPawnGood(PawnTicket $ticket, array $data): void
+    private function syncPawnGood(PawnTicket $ticket, array $data, ?PawnGood $good = null): void
     {
-        $good = new PawnGood();
+        if ($good === null) {
+            $good = new PawnGood();
+            $ticket->addPawnGood($good);
+        }
+
         $good->setPawnTicket($ticket)
             ->setName($data['name'] ?? 'Без названия')
             ->setDescription($data['description'] ?? null)
@@ -440,7 +509,6 @@ class DataSyncService
             }
         }
 
-        $ticket->addPawnGood($good);
         $this->entityManager->persist($good);
     }
 

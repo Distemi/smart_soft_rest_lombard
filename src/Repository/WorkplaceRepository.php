@@ -40,6 +40,18 @@ class WorkplaceRepository extends ServiceEntityRepository
         return $this->findOneBy(['externalId' => $externalId]);
     }
 
+    public function findByExternalIdsNotIn(array $externalIds): array
+    {
+        $qb = $this->createQueryBuilder('w');
+
+        if ($externalIds !== []) {
+            $qb->where('w.externalId NOT IN (:externalIds)')
+                ->setParameter('externalIds', $externalIds);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
     public function findAllActive(): array
     {
         return $this->createQueryBuilder('w')

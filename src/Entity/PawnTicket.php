@@ -18,6 +18,18 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_ticket_open_issue_date', columns: ['issue_date'], options: ['where' => 'status IN (2, 3, 4)'])]
 class PawnTicket
 {
+    public const int STATUS_FOR_SALE = 1;
+    public const int STATUS_OPEN = 2;
+    public const int STATUS_OVERDUE = 3;
+    public const int STATUS_OVERDUE_READY_FOR_SALE = 4;
+    public const int STATUS_CLOSED = 5;
+
+    public const array OPEN_STATUSES = [
+        self::STATUS_OPEN,
+        self::STATUS_OVERDUE,
+        self::STATUS_OVERDUE_READY_FOR_SALE,
+    ];
+
     #[ORM\Id]
     #[ORM\Column(type: 'string', length: 10)]
     private string $ticketNumber;
@@ -67,16 +79,12 @@ class PawnTicket
     #[ORM\OneToMany(targetEntity: PawnGood::class, mappedBy: 'pawnTicket', cascade: ['persist'], orphanRemoval: true)]
     private Collection $pawnGoods;
 
-    #[ORM\OneToMany(targetEntity: Payment::class, mappedBy: 'pawnTicket', cascade: ['persist'], orphanRemoval: true)]
-    private Collection $payments;
-
     public function __construct()
     {
         $this->pawnGoods = new ArrayCollection();
-        $this->payments = new ArrayCollection();
         $this->createdAt = new DateTime();
         $this->updatedAt = new DateTime();
-        $this->status = 2;
+        $this->status = self::STATUS_OPEN;
     }
 
     public function getExternalId(): int
@@ -259,43 +267,19 @@ class PawnTicket
         return $this;
     }
 
-    public function getPayments(): Collection
-    {
-        return $this->payments;
-    }
-
-    public function addPayment(Payment $payment): static
-    {
-        if (!$this->payments->contains($payment)) {
-            $this->payments->add($payment);
-            $payment->setPawnTicket($this);
-        }
-
-        return $this;
-    }
-
-    public function removePayment(Payment $payment): static
-    {
-        if ($this->payments->removeElement($payment) && $payment->getPawnTicket() === $this) {
-            $payment->setPawnTicket(null);
-        }
-
-        return $this;
-    }
-
     public function isOpen(): bool
     {
-        return in_array($this->status, [2, 3, 4], true);
+        return in_array($this->status, self::OPEN_STATUSES, true);
     }
 
     public function getStatusLabel(): string
     {
         return match ($this->status) {
-            1 => 'На реализации',
-            2 => 'Открыт',
-            3 => 'Просрочен',
-            4 => 'Просрочен (готов к продаже)',
-            5 => 'Закрыт',
+            self::STATUS_FOR_SALE => 'На реализации',
+            self::STATUS_OPEN => 'Открыт',
+            self::STATUS_OVERDUE => 'Просрочен',
+            self::STATUS_OVERDUE_READY_FOR_SALE => 'Просрочен (готов к продаже)',
+            self::STATUS_CLOSED => 'Закрыт',
             default => 'Неизвестно',
         };
     }

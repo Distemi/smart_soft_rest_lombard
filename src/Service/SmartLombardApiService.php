@@ -2,10 +2,7 @@
 
 namespace App\Service;
 
-use App\Entity\ApiLog;
-use App\Repository\ApiLogRepository;
 use Psr\Log\LoggerInterface;
-use Exception;
 use RuntimeException;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
@@ -22,7 +19,6 @@ class SmartLombardApiService
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
-        private readonly ApiLogRepository $apiLogRepository,
         private readonly LoggerInterface $logger,
         private readonly CacheInterface $cache,
         private readonly string $secretKey,
@@ -218,16 +214,12 @@ class SmartLombardApiService
 
     private function logApiRequest(string $endpoint, array $requestData, string|array $responseData, int $statusCode): void
     {
-        try {
-            $apiLog = new ApiLog();
-            $apiLog->setEndpoint($endpoint);
-            $apiLog->setRequestSummary($this->summarizeRequest($requestData));
-            $apiLog->setResponseSummary($this->summarizeResponse($responseData, $statusCode));
-            $apiLog->setStatusCode($statusCode);
-            $this->apiLogRepository->save($apiLog, true);
-        } catch (Exception $e) {
-            $this->logger->error('Ошибка логирования API', ['error' => $e->getMessage()]);
-        }
+        $this->logger->debug('SmartLombard API request', [
+            'endpoint' => $endpoint,
+            'request' => $this->summarizeRequest($requestData),
+            'response' => $this->summarizeResponse($responseData, $statusCode),
+            'status_code' => $statusCode,
+        ]);
     }
 
     private function summarizeRequest(array $data): string

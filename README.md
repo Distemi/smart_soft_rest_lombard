@@ -128,23 +128,20 @@ curl "http://localhost/api/client/tickets?fullName=Иванов Иван Ива�
 
 ## Консольные команды
 
-| Команда                      | Описание                     |
-|------------------------------|------------------------------|
-| `app:sync-data`              | Синхронизация данных с API   |
-| `app:create-admin`           | Создание администратора      |
-| `app:cleanup-logs --days=30` | Очистка старых API-логов     |
-| `app:show-api-logs`          | Просмотр API-логов           |
-| `app:set-api-token`          | Установка API-токена вручную |
-| `app:clear-api-cache`        | Очистка кэша API-токена      |
+| Команда               | Описание                           |
+|-----------------------|------------------------------------|
+| `app:sync-data`       | Синхронизация данных из API        |
+| `app:create-admin`    | Создание администратора            |
+| `app:set-api-token`   | Установка API-токена вручную       |
+| `app:clear-api-cache` | Очистка кэша API-токена            |
 
 ## Scheduler
 
 Расписание определено в `src/Schedule.php`:
 
-| Задача                       | Расписание          |
-|------------------------------|---------------------|
-| `app:sync-data`              | Ежедневно в 02:00   |
-| `app:cleanup-logs --days=30` | Воскресенье в 03:00 |
+| Задача          | Расписание        |
+|-----------------|-------------------|
+| `app:sync-data` | Ежедневно в 01:00 |
 
 ```bash
 # Запуск планировщика
@@ -159,6 +156,16 @@ php bin/console debug:scheduler
 ```bash
 * * * * * cd /path/to/project && php bin/console messenger:consume scheduler_default --time-limit=60
 ```
+
+## Обновление
+
+После обновления кода запустите миграции для синхронизации схемы БД:
+
+```bash
+php bin/console doctrine:migrations:migrate
+```
+
+**Важно:** Таблицы `api_logs` и `payments` удалены. Логирование API-запросов теперь ведётся через Symfony логгер.
 
 ## Продакшен
 

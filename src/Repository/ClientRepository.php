@@ -83,6 +83,15 @@ class ClientRepository extends ServiceEntityRepository
         return $qb->getQuery()->getOneOrNullResult();
     }
 
+    public function findClientsWithoutTickets(): array
+    {
+        return $this->createQueryBuilder('c')
+            ->leftJoin('c.pawnTickets', 'pt')
+            ->where('pt.ticketNumber IS NULL')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function save(Client $client, bool $flush = false): void
     {
         $this->getEntityManager()->persist($client);
