@@ -18,6 +18,25 @@ class ClientRepository extends ServiceEntityRepository
         return $this->findOneBy(['externalId' => $externalId]);
     }
 
+    public function countAll(): int
+    {
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function findOneByTypeAndExternalId(string $clientType, int $externalId): ?Client
+    {
+        foreach ($this->findBy(['externalId' => $externalId]) as $client) {
+            if ($client->getClientType() === $clientType) {
+                return $client;
+            }
+        }
+
+        return null;
+    }
+
     public function findIndexedByExternalIds(array $externalIds): array
     {
         $normalizedIds = array_values(array_unique(array_map(
@@ -38,6 +57,31 @@ class ClientRepository extends ServiceEntityRepository
         $indexed = [];
         foreach ($clients as $client) {
             $indexed[$client->getExternalId()] = $client;
+        }
+
+        return $indexed;
+    }
+
+    public function findIndexedByTypedExternalIds(array $clientRefs): array
+    {
+        $naturalPersonIds = $clientRefs['natural_person'] ?? [];
+        $legalPersonIds = $clientRefs['legal_person'] ?? [];
+        $externalIds = array_values(array_unique(array_merge($naturalPersonIds, $legalPersonIds)));
+
+        if ($externalIds === []) {
+            return [];
+        }
+
+        $clients = $this->createQueryBuilder('c')
+            ->where('c.externalId IN (:externalIds)')
+            ->setParameter('externalIds', $externalIds)
+            ->getQuery()
+            ->getResult();
+
+        $indexed = [];
+        foreach ($clients as $client) {
+            $type = $client->isLegalPerson() ? 'legal_person' : 'natural_person';
+            $indexed[sprintf('%s:%d', $type, $client->getExternalId())] = $client;
         }
 
         return $indexed;

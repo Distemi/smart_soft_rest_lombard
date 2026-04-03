@@ -15,14 +15,65 @@ class PawnTicketRepository extends ServiceEntityRepository
         parent::__construct($registry, PawnTicket::class);
     }
 
+    public function findByTicketNumber(string $ticketNumber): ?PawnTicket
+    {
+        return $this->findOneBy(['ticketNumber' => $ticketNumber]);
+    }
+
+    public function countAll(): int
+    {
+        return (int) $this->createQueryBuilder('pt')
+            ->select('COUNT(pt.ticketNumber)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function countOpen(): int
+    {
+        return (int) $this->createQueryBuilder('pt')
+            ->select('COUNT(pt.ticketNumber)')
+            ->where('pt.status IN (:statuses)')
+            ->setParameter('statuses', PawnTicket::OPEN_STATUSES)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function findClientByTicketAndName(
+        string $ticketNumber,
+        string $surname,
+        string $name,
+        string $patronymic = ''
+    ): ?Client {
+        $qb = $this->createQueryBuilder('pt')
+            ->innerJoin('pt.client', 'c')
+            ->where('pt.ticketNumber = :ticketNumber')
+            ->andWhere('LOWER(c.surname) = LOWER(:surname)')
+            ->andWhere('LOWER(c.name) = LOWER(:name)')
+            ->setParameter('ticketNumber', $ticketNumber)
+            ->setParameter('surname', $surname)
+            ->setParameter('name', $name)
+            ->select('c')
+            ->setMaxResults(1);
+
+        if ($patronymic !== '') {
+            $qb->andWhere('LOWER(COALESCE(c.patronymic, \'\')) = LOWER(:patronymic)')
+                ->setParameter('patronymic', $patronymic);
+        }
+
+        return $qb->getQuery()->getOneOrNullResult();
+    }
+
     public function findByExternalId(int $externalId): ?PawnTicket
     {
         return $this->findOneBy(['externalId' => $externalId]);
     }
 
-    public function findByTicketNumber(string $ticketNumber): ?PawnTicket
+    public function findOneByWorkplaceAndTicketNumber(Workplace $workplace, string $ticketNumber): ?PawnTicket
     {
-        return $this->findOneBy(['ticketNumber' => $ticketNumber]);
+        return $this->findOneBy([
+            'workplace' => $workplace,
+            'ticketNumber' => $ticketNumber,
+        ]);
     }
 
     public function findOpenTicketsByClient(Client $client): array

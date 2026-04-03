@@ -17,7 +17,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class SyncDataCommand extends Command
 {
     public function __construct(
-        private readonly DataSyncService $dataSyncService
+        private readonly DataSyncService $dataSyncService,
     ) {
         parent::__construct();
     }

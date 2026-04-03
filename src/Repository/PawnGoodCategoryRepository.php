@@ -24,6 +24,11 @@ class PawnGoodCategoryRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    public function findById(int $id): ?PawnGoodCategory
+    {
+        return $this->find($id);
+    }
+
     public function save(PawnGoodCategory $entity, bool $flush = false): void
     {
         $this->getEntityManager()->persist($entity);

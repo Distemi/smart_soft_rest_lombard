@@ -10,14 +10,17 @@
 <div class="container-fluid my-4">
     <h1 class="mb-4">Клиенты</h1>
 
-    <div class="card">
-        <div class="card-body">
+        <div class="card">
+            <div class="card-body">
+            {% if clients|length > 0 %}
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>ID</th>
+                            <th>Внешний ID</th>
+                            <th>Тип</th>
                             <th>ФИО</th>
+                            <th>ИНН</th>
                             <th>Телефон</th>
                             <th>Email</th>
                             <th>Кол-во билетов</th>
@@ -28,30 +31,38 @@
                     <tbody>
                         {% for client in clients %}
                         <tr>
-                            <td>{{ client.id }}</td>
-                            <td><strong>{{ client.fullName }}</strong></td>
+                            <td class="text-muted small">{{ client.externalId }}</td>
+                            <td><span class="badge bg-secondary">{{ client.clientTypeLabel }}</span></td>
+                            <td>
+                                <a href="{{ path('app_admin_client_view', {clientType: client.clientType, externalId: client.externalId}) }}"
+                                   class="fw-semibold text-decoration-none">
+                                    {{ client.fullName }}
+                                </a>
+                            </td>
+                            <td>{{ client.inn ?? '-' }}</td>
                             <td>{{ client.phone|format_phone }}</td>
                             <td>{{ client.email ?? '-' }}</td>
                             <td>
                                 <span class="badge bg-primary">{{ client.pawnTickets|length }}</span>
                             </td>
-                            <td>{{ client.createdAt|date('d.m.Y H:i') }}</td>
-                            <td>
-                                <a href="{{ path('app_admin_client_view', {id: client.id}) }}" 
+                            <td class="text-muted small text-nowrap">{{ client.createdAt|date('d.m.Y H:i') }}</td>
+                            <td class="text-nowrap">
+                                <a href="{{ path('app_admin_client_view', {clientType: client.clientType, externalId: client.externalId}) }}"
                                    class="btn btn-sm btn-primary">
                                     <i class="bi bi-eye"></i> Просмотр
                                 </a>
                             </td>
                         </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="8" class="text-center">Клиенты не найдены</td>
-                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            {% else %}
+                <div class="alert alert-info mb-0">
+                    Клиенты пока не найдены. После синхронизации они появятся в этом списке.
+                </div>
+            {% endif %}
+            </div>
         </div>
-    </div>
 </div>
 {% endblock %}

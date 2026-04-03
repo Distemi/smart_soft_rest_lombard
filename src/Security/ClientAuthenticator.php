@@ -41,23 +41,15 @@ class ClientAuthenticator extends AbstractLoginFormAuthenticator
 
         return new SelfValidatingPassport(
             new UserBadge($ticketNumber, function () use ($ticketNumber, $surname, $name, $patronymic) {
-                $ticket = $this->pawnTicketRepository->findByTicketNumber($ticketNumber);
+                $client = $this->pawnTicketRepository->findClientByTicketAndName(
+                    $ticketNumber,
+                    $surname,
+                    $name,
+                    $patronymic
+                );
 
-                if (!$ticket) {
-                    throw new CustomUserMessageAuthenticationException('Залоговый билет с данным номером не найден');
-                }
-
-                $client = $ticket->getClient();
-
-                if (
-                    mb_strtolower($client->getSurname()) !== mb_strtolower($surname) ||
-                    mb_strtolower($client->getName()) !== mb_strtolower($name)
-                ) {
-                    throw new CustomUserMessageAuthenticationException('ФИО не совпадает с данными билета');
-                }
-
-                if ($patronymic !== '' && mb_strtolower($client->getPatronymic() ?? '') !== mb_strtolower($patronymic)) {
-                    throw new CustomUserMessageAuthenticationException('ФИО не совпадает с данными билета');
+                if (!$client) {
+                    throw new CustomUserMessageAuthenticationException('Залоговый билет с указанными ФИО не найден');
                 }
 
                 return $client;

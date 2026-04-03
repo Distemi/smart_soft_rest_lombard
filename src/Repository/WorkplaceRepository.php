@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Client;
 use App\Entity\PawnTicket;
 use App\Entity\Workplace;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -35,18 +36,18 @@ class WorkplaceRepository extends ServiceEntityRepository
         }
     }
 
-    public function findByExternalId(int $externalId): ?Workplace
+    public function findById(int $id): ?Workplace
     {
-        return $this->findOneBy(['externalId' => $externalId]);
+        return $this->find($id);
     }
 
-    public function findByExternalIdsNotIn(array $externalIds): array
+    public function findByIdsNotIn(array $ids): array
     {
         $qb = $this->createQueryBuilder('w');
 
-        if ($externalIds !== []) {
-            $qb->where('w.externalId NOT IN (:externalIds)')
-                ->setParameter('externalIds', $externalIds);
+        if ($ids !== []) {
+            $qb->where('w.id NOT IN (:ids)')
+                ->setParameter('ids', $ids);
         }
 
         return $qb->getQuery()->getResult();
@@ -73,6 +74,51 @@ class WorkplaceRepository extends ServiceEntityRepository
             ->setParameter('workplaceId', $workplaceId)
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    public function findUniqueClientsPage(int $workplaceId, int $page, int $limit): array
+    {
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('c')
+            ->addSelect('(SELECT SUM(CASE WHEN pt_sub.status IN (:openStatuses) THEN 1 ELSE 0 END) FROM App\Entity\PawnTicket pt_sub WHERE pt_sub.client = c.id AND pt_sub.workplace = :workplaceId) AS HIDDEN openTicketsCount')
+            ->from(Client::class, 'c')
+            ->where('EXISTS (SELECT 1 FROM App\Entity\PawnTicket pt WHERE pt.client = c.id AND pt.workplace = :workplaceId)')
+            ->setParameter('workplaceId', $workplaceId)
+            ->setParameter('openStatuses', PawnTicket::OPEN_STATUSES)
+            ->orderBy('openTicketsCount', 'DESC')
+            ->addOrderBy('c.surname', 'ASC')
+            ->addOrderBy('c.name', 'ASC')
+            ->addOrderBy('c.patronymic', 'ASC')
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function getPawnTicketsCount(int $workplaceId): int
+    {
+        return (int) $this->getEntityManager()->createQueryBuilder()
+            ->select('COUNT(pt.ticketNumber)')
+            ->from(PawnTicket::class, 'pt')
+            ->where('pt.workplace = :workplaceId')
+            ->setParameter('workplaceId', $workplaceId)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function findPawnTicketsPage(int $workplaceId, int $page, int $limit): array
+    {
+        return $this->getEntityManager()->createQueryBuilder()
+            ->select('pt')
+            ->from(PawnTicket::class, 'pt')
+            ->where('pt.workplace = :workplaceId')
+            ->setParameter('workplaceId', $workplaceId)
+            ->orderBy('pt.issueDate', 'DESC')
+            ->addOrderBy('pt.ticketNumber', 'ASC')
+            ->setFirstResult(($page - 1) * $limit)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
     }
 
     public function getUniqueClientsCountByWorkplace(): array

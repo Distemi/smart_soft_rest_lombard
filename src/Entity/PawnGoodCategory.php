@@ -12,12 +12,8 @@ use Doctrine\ORM\Mapping as ORM;
 class PawnGoodCategory
 {
     #[ORM\Id]
-    #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
-    private int $id;
-
-    #[ORM\Column(type: 'integer', nullable: true, unique: true)]
-    private ?int $externalId = null;
+    private ?int $id = null;
 
     #[ORM\Column(type: 'string', length: 64, unique: true)]
     private string $code;
@@ -28,6 +24,9 @@ class PawnGoodCategory
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $description = null;
 
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $systemCategory = false;
+
     #[ORM\OneToMany(targetEntity: PawnGood::class, mappedBy: 'category')]
     private Collection $pawnGoods;
 
@@ -36,19 +35,15 @@ class PawnGoodCategory
         $this->pawnGoods = new ArrayCollection();
     }
 
-    public function getId(): int
+    public function getId(): ?int
     {
         return $this->id;
     }
 
-    public function getExternalId(): ?int
+    public function setId(int $id): static
     {
-        return $this->externalId;
-    }
+        $this->id = $id;
 
-    public function setExternalId(?int $externalId): static
-    {
-        $this->externalId = $externalId;
         return $this;
     }
 
@@ -82,6 +77,18 @@ class PawnGoodCategory
     public function setDescription(?string $description): static
     {
         $this->description = $description;
+        return $this;
+    }
+
+    public function isSystemCategory(): bool
+    {
+        return $this->systemCategory;
+    }
+
+    public function setSystemCategory(bool|int|string|null $systemCategory): static
+    {
+        $this->systemCategory = filter_var($systemCategory, FILTER_VALIDATE_BOOL);
+
         return $this;
     }
 

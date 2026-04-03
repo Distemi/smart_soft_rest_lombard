@@ -21,6 +21,7 @@
                     <i class="bi bi-info-circle"></i> У вас нет открытых залоговых билетов
                 </div>
             {% else %}
+                {% set totalsCurrency = tickets|first ? tickets|first.currencyCode ?? 'RUB' : 'RUB' %}
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead class="table-light">
@@ -36,12 +37,13 @@
                         </thead>
                         <tbody>
                             {% for ticket in tickets %}
+                            {% set ticketCurrency = ticket.currencyCode ?? 'RUB' %}
                             <tr>
                                 <td><strong>{{ ticket.ticketNumber }}</strong></td>
-                                <td>{{ ticket.issueDate|date('d.m.Y') }}</td>
-                                <td>{{ ticket.dueDate|date('d.m.Y') }}</td>
-                                <td>{{ ticket.loanAmount|number_format(2, '.', ' ') }} ₽</td>
-                                <td>{{ ticket.currentDebt|number_format(2, '.', ' ') }} ₽</td>
+                                <td>{{ ticket.issueDate ? ticket.issueDate|date('d.m.Y') : '-' }}</td>
+                                <td>{{ ticket.dueDate ? ticket.dueDate|date('d.m.Y') : '-' }}</td>
+                                <td>{{ ticket.loanAmount is not null ? ticket.loanAmount|number_format(2, '.', ' ') ~ ' ' ~ ticketCurrency : '-' }}</td>
+                                <td>{{ ticket.currentDebt is not null ? ticket.currentDebt|number_format(2, '.', ' ') ~ ' ' ~ ticketCurrency : '-' }}</td>
                                 <td>
                                     {% if ticket.isOpen %}
                                         <span class="badge bg-success">{{ ticket.statusLabel }}</span>
@@ -50,13 +52,25 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <a href="{{ path('app_ticket_view', {workplaceId: ticket.workplace.id, ticketNumber: ticket.ticketNumber}) }}" class="btn btn-sm btn-primary">
-                                        <i class="bi bi-eye"></i> Просмотр
-                                    </a>
+                                    {% if ticket.workplace %}
+                                        <a href="{{ path('app_ticket_view', {workplaceId: ticket.workplace.id, ticketNumber: ticket.ticketNumber}) }}" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-eye"></i> Просмотр
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">Нет филиала</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
                         </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th colspan="3" class="text-end">Всего:</th>
+                                <th>{{ totals.loanAmount|number_format(2, '.', ' ') }} {{ totalsCurrency }}</th>
+                                <th>{{ totals.currentDebt|number_format(2, '.', ' ') }} {{ totalsCurrency }}</th>
+                                <th colspan="2"></th>
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             {% endif %}

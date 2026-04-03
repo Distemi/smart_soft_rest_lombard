@@ -65,8 +65,8 @@ class ClientTicketsApiController extends AbstractController
 
         return $apiResponder->success([
             'client' => [
-                'id' => $matchedClient->getId(),
                 'externalId' => $matchedClient->getExternalId(),
+                'clientType' => $matchedClient->getClientType(),
                 'fullName' => $matchedClient->getFullName(),
                 'phone' => $matchedClient->getPhone(),
             ],
@@ -92,7 +92,6 @@ class ClientTicketsApiController extends AbstractController
             'currentDebt' => $ticket->getCurrentDebt(),
             'workplace' => [
                 'id' => $workplace->getId(),
-                'externalId' => $workplace->getExternalId(),
                 'title' => $workplace->getTitle(),
                 'city' => $workplace->getCity(),
                 'address' => $workplace->getAddress(),

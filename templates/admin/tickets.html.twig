@@ -10,10 +10,11 @@
 <div class="container-fluid my-4">
     <h1 class="mb-4">Залоговые билеты</h1>
 
-    <div class="card">
-        <div class="card-body">
+        <div class="card">
+            <div class="card-body">
+            {% if tickets|length > 0 %}
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th>Внешний ID</th>
@@ -30,11 +31,21 @@
                     </thead>
                     <tbody>
                         {% for ticket in tickets %}
+                        {% set ticketCurrency = ticket.currencyCode ?? 'RUB' %}
                         <tr>
-                            <td>{{ ticket.externalId }}</td>
-                            <td><strong>{{ ticket.ticketNumber }}</strong></td>
+                            <td class="text-muted small">{{ ticket.externalId }}</td>
                             <td>
-                                <a href="{{ path('app_admin_client_view', {id: ticket.client.id}) }}">
+                                {% if ticket.workplace %}
+                                    <a href="{{ path('app_admin_ticket_view', {workplaceId: ticket.workplace.id, ticketNumber: ticket.ticketNumber}) }}"
+                                       class="fw-semibold text-decoration-none">
+                                        {{ ticket.ticketNumber }}
+                                    </a>
+                                {% else %}
+                                    <strong>{{ ticket.ticketNumber }}</strong>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ path('app_admin_client_view', {clientType: ticket.client.clientType, externalId: ticket.client.externalId}) }}">
                                     {{ ticket.client.fullName }}
                                 </a>
                             </td>
@@ -47,10 +58,10 @@
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td>{{ ticket.loanAmount|number_format(2, '.', ' ') }} ₽</td>
-                            <td>{{ ticket.currentDebt|number_format(2, '.', ' ') }} ₽</td>
-                            <td>{{ ticket.issueDate|date('d.m.Y') }}</td>
-                            <td>{{ ticket.dueDate|date('d.m.Y') }}</td>
+                            <td>{{ ticket.loanAmount is not null ? ticket.loanAmount|number_format(2, '.', ' ') ~ ' ' ~ ticketCurrency : '-' }}</td>
+                            <td>{{ ticket.currentDebt is not null ? ticket.currentDebt|number_format(2, '.', ' ') ~ ' ' ~ ticketCurrency : '-' }}</td>
+                            <td class="text-muted small text-nowrap">{{ ticket.issueDate ? ticket.issueDate|date('d.m.Y') : '-' }}</td>
+                            <td class="text-muted small text-nowrap">{{ ticket.dueDate ? ticket.dueDate|date('d.m.Y') : '-' }}</td>
                             <td>
                                 {% if ticket.isOpen %}
                                     <span class="badge bg-success">{{ ticket.statusLabel }}</span>
@@ -59,21 +70,26 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <a href="{{ path('app_admin_ticket_view', {workplaceId: ticket.workplace.id, ticketNumber: ticket.ticketNumber}) }}"
-                                   class="btn btn-sm btn-primary">
-                                    <i class="bi bi-eye"></i> Просмотр
-                                </a>
+                                {% if ticket.workplace %}
+                                    <a href="{{ path('app_admin_ticket_view', {workplaceId: ticket.workplace.id, ticketNumber: ticket.ticketNumber}) }}"
+                                       class="btn btn-sm btn-primary">
+                                        <i class="bi bi-eye"></i> Просмотр
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">Нет филиала</span>
+                                {% endif %}
                             </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="10" class="text-center">Залоговые билеты не найдены</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            {% else %}
+                <div class="alert alert-info mb-0">
+                    Залоговые билеты пока не найдены. Проверьте, что синхронизация данных уже была выполнена.
+                </div>
+            {% endif %}
+            </div>
         </div>
-    </div>
 </div>
 {% endblock %}

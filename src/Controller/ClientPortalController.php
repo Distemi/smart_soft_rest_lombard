@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Client;
+use App\Entity\PawnTicket;
 use App\Form\ClientLoginFormType;
 use App\Repository\PawnTicketRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -53,11 +54,33 @@ class ClientPortalController extends AbstractController
         $client = $this->getUser();
 
         $openTickets = $pawnTicketRepository->findOpenTicketsByClient($client);
+        $totals = $this->calculateOpenTicketTotals($openTickets);
 
         return $this->render('client_portal/tickets_list.html.twig', [
             'client' => $client,
             'tickets' => $openTickets,
+            'totals' => $totals,
         ]);
+    }
+
+    /**
+     * @param array<PawnTicket> $tickets
+     * @return array{loanAmount: float, currentDebt: float}
+     */
+    private function calculateOpenTicketTotals(array $tickets): array
+    {
+        $loanAmount = 0.0;
+        $currentDebt = 0.0;
+
+        foreach ($tickets as $ticket) {
+            $loanAmount += (float) ($ticket->getLoanAmount() ?? 0);
+            $currentDebt += (float) ($ticket->getCurrentDebt() ?? 0);
+        }
+
+        return [
+            'loanAmount' => $loanAmount,
+            'currentDebt' => $currentDebt,
+        ];
     }
 
     #[Route('/ticket/{workplaceId}/{ticketNumber}', name: 'app_ticket_view', methods: ['GET'])]

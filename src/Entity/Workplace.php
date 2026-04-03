@@ -11,17 +11,12 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: WorkplaceRepository::class)]
 #[ORM\Table(name: 'workplaces')]
 #[ORM\HasLifecycleCallbacks]
-#[ORM\Index(name: 'idx_workplace_external_id', columns: ['external_id'])]
-#[ORM\Index(name: 'idx_workplace_active', columns: ['title', 'city'], options: ['where' => 'is_active = true'])]
+#[ORM\Index(name: 'idx_workplace_active', columns: ['title', 'city'], options: ['where' => '(is_active = true)'])]
 class Workplace
 {
     #[ORM\Id]
-    #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
-
-    #[ORM\Column(type: 'integer', unique: true)]
-    private ?int $externalId = null;
 
     #[ORM\Column(type: 'string', length: 64, nullable: true)]
     private ?string $title = null;
@@ -34,6 +29,15 @@ class Workplace
 
     #[ORM\Column(type: 'string', length: 20, nullable: true)]
     private ?string $phone = null;
+
+    #[ORM\Column(type: 'string', length: 32, nullable: true)]
+    private ?string $okato = null;
+
+    #[ORM\Column(type: 'integer', options: ['default' => 1])]
+    private int $state = 1;
+
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $imageLinks = null;
 
     #[ORM\Column(type: 'boolean')]
     private bool $isActive = true;
@@ -65,14 +69,10 @@ class Workplace
         return $this->id;
     }
 
-    public function getExternalId(): ?int
+    public function setId(int $id): static
     {
-        return $this->externalId;
-    }
+        $this->id = $id;
 
-    public function setExternalId(int $externalId): static
-    {
-        $this->externalId = $externalId;
         return $this;
     }
 
@@ -108,7 +108,7 @@ class Workplace
             return $this->city;
         }
 
-        return $this->externalId !== null ? 'Филиал ' . $this->externalId : '';
+        return $this->id !== null ? 'Филиал ' . $this->id : '';
     }
 
     public function getAddress(): ?string
@@ -130,6 +130,42 @@ class Workplace
     public function setPhone(?string $phone): static
     {
         $this->phone = $phone;
+        return $this;
+    }
+
+    public function getOkato(): ?string
+    {
+        return $this->okato;
+    }
+
+    public function setOkato(?string $okato): static
+    {
+        $this->okato = $okato;
+
+        return $this;
+    }
+
+    public function getState(): int
+    {
+        return $this->state;
+    }
+
+    public function setState(int $state): static
+    {
+        $this->state = $state;
+
+        return $this;
+    }
+
+    public function getImageLinks(): ?array
+    {
+        return $this->imageLinks;
+    }
+
+    public function setImageLinks(?array $imageLinks): static
+    {
+        $this->imageLinks = $imageLinks;
+
         return $this;
     }
 

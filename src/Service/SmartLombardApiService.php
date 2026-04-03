@@ -11,7 +11,6 @@ use function is_string;
 
 class SmartLombardApiService
 {
-    // Немного констант для настройки и удобства, чтобы не плодить магические строки и числа по всему коду
     private const string BASE_URL = 'https://online.smartlombard.ru/api/exchange/v1';
     private const string CACHE_KEY = 'smartlombard_access_token';
     private const int TOKEN_TTL = 3300;
@@ -101,8 +100,19 @@ class SmartLombardApiService
 
     public function getClient(int $clientId): array
     {
+        return $this->getNaturalPersonClient($clientId);
+    }
+
+    public function getNaturalPersonClient(int $clientId): array
+    {
         $data = $this->apiGet("/clients/natural_persons/$clientId");
         return $data['result']['client_natural_person'] ?? [];
+    }
+
+    public function getLegalPersonClient(int $clientId): array
+    {
+        $data = $this->apiGet("/clients/legal_persons/$clientId");
+        return $data['result']['client_legal_person'] ?? [];
     }
 
     public function getClients(int $page = 1, int $limit = 100): array
@@ -238,7 +248,6 @@ class SmartLombardApiService
 
     private function summarizeResponse(string|array $responseData, int $statusCode): string
     {
-        // Вот вроде по русски всё должно быть, но пусть в БД меньше данных хранится, а то в логах будет много мусора и так :)
         if ($statusCode >= 400) {
             if (is_string($responseData)) {
                 $decoded = json_decode($responseData, true);
@@ -276,6 +285,10 @@ class SmartLombardApiService
 
         if (isset($responseData['result']['client_natural_person'])) {
             return 'Client loaded';
+        }
+
+        if (isset($responseData['result']['client_legal_person'])) {
+            return 'Legal client loaded';
         }
 
         return 'Success';

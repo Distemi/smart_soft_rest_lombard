@@ -15,7 +15,13 @@
         </ol>
     </nav>
 
-    <h1 class="mb-4">Залоговый билет № {{ ticket.ticketNumber }}</h1>
+    {% set ticketCurrency = ticket.currencyCode ?? 'RUB' %}
+    <h1 class="mb-4">
+        Залоговый билет № {{ ticket.ticketNumber }}
+        {% if ticket.testOperation %}
+            <span class="badge bg-warning text-dark ms-2">Тестовая операция</span>
+        {% endif %}
+    </h1>
 
     <div class="row">
         <div class="col-md-8 mb-4">
@@ -24,10 +30,48 @@
                     <h5 class="mb-0">Основная информация</h5>
                 </div>
                 <div class="card-body">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                        {% if ticket.isOpen %}
+                            <span class="badge bg-success">{{ ticket.statusLabel }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ ticket.statusLabel }}</span>
+                        {% endif %}
+                        <span class="badge bg-info text-dark">{{ ticket.workplace ? ticket.workplace.displayTitle : 'Без филиала' }}</span>
+                        <span class="text-muted small">Внешний ID {{ ticket.externalId }}</span>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 bg-light h-100">
+                                <div class="text-muted small">Текущий долг</div>
+                                <div class="fs-5 fw-semibold text-danger">
+                                    {{ ticket.currentDebt is not null ? ticket.currentDebt|number_format(2, '.', ' ') ~ ' ' ~ ticketCurrency : '-' }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 bg-light h-100">
+                                <div class="text-muted small">Сумма займа</div>
+                                <div class="fs-5 fw-semibold">
+                                    {{ ticket.loanAmount is not null ? ticket.loanAmount|number_format(2, '.', ' ') ~ ' ' ~ ticketCurrency : '-' }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 bg-light h-100">
+                                <div class="text-muted small">Дата возврата</div>
+                                <div class="fs-5 fw-semibold">
+                                    {{ ticket.dueDate ? ticket.dueDate|date('d.m.Y') : '-' }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="row">
                         <div class="col-md-6">
                             <p><strong>Внешний ID:</strong> {{ ticket.externalId }}</p>
                             <p><strong>Номер билета:</strong> {{ ticket.ticketNumber }}</p>
+                            <p><strong>ID цепочки залогов:</strong> {{ ticket.pawnChainId ?? '-' }}</p>
+                            <p><strong>ID тарифа:</strong> {{ ticket.tariffId ?? '-' }}</p>
+                            <p><strong>ID юрлица:</strong> {{ ticket.entityId ?? '-' }}</p>
                             <p><strong>Филиал:</strong>
                             
                                 {% if ticket.workplace %}
@@ -36,23 +80,75 @@
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </p>
-                            <p><strong>Дата выдачи:</strong> {{ ticket.issueDate|date('d.m.Y') }}</p>
-                            <p><strong>Дата возврата:</strong> {{ ticket.dueDate|date('d.m.Y') }}</p>
+                            <p><strong>Дата выдачи:</strong> {{ ticket.issueDate ? ticket.issueDate|date('d.m.Y') : '-' }}</p>
+                            <p><strong>Дата возврата:</strong> {{ ticket.dueDate ? ticket.dueDate|date('d.m.Y') : '-' }}</p>
+                            <p><strong>Дата закрытия:</strong> {{ ticket.closeDate ? ticket.closeDate|date('d.m.Y') : '-' }}</p>
+                            <p><strong>Срок займа:</strong> {{ ticket.duration is not null ? ticket.duration ~ ' дн.' : '-' }}</p>
                         </div>
                         <div class="col-md-6">
-                            <p><strong>Сумма займа:</strong> {{ ticket.loanAmount|number_format(2, '.', ' ') }} ₽</p>
-                            <p><strong>Оценочная стоимость:</strong> {{ ticket.pledgeAmount|number_format(2, '.', ' ') }} ₽</p>
-                            <p><strong>Текущий долг:</strong> {{ ticket.currentDebt|number_format(2, '.', ' ') }} ₽</p>
-                            <p><strong>Процентная ставка:</strong> {{ ticket.interestRate }}%</p>
-                            <p><strong>Статус:</strong>
-                                {% if ticket.isOpen %}
-                                    <span class="badge bg-success">{{ ticket.statusLabel }}</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">{{ ticket.statusLabel }}</span>
-                                {% endif %}
-                            </p>
+                            <p><strong>Валюта:</strong> {{ ticketCurrency }}</p>
+                            <p><strong>Сумма займа:</strong> {{ ticket.loanAmount is not null ? ticket.loanAmount|number_format(2, '.', ' ') ~ ' ' ~ ticketCurrency : '-' }}</p>
+                            <p><strong>Оценочная стоимость:</strong> {{ ticket.pledgeAmount is not null ? ticket.pledgeAmount|number_format(2, '.', ' ') ~ ' ' ~ ticketCurrency : '-' }}</p>
+                            <p><strong>Текущий долг:</strong> {{ ticket.currentDebt is not null ? ticket.currentDebt|number_format(2, '.', ' ') ~ ' ' ~ ticketCurrency : '-' }}</p>
+                            <p><strong>Процентная ставка:</strong> {{ ticket.interestRate is not null ? ticket.interestRate ~ '%' : '-' }}</p>
+                            <p><strong>Уплаченные проценты:</strong> {{ ticket.paidPercents is not null ? ticket.paidPercents|number_format(2, '.', ' ') ~ ' ' ~ ticketCurrency : '-' }}</p>
                         </div>
                     </div>
+                    <hr>
+                    <p><strong>Комментарий:</strong> {{ ticket.comment ?? '-' }}</p>
+                    <p><strong>Детализация долга:</strong></p>
+                    {% if ticket.pawnTicketDebt is not empty %}
+                        {% set debtLabels = {
+                            sum_debt: 'Общая сумма долга',
+                            loan_amount: 'Сумма займа',
+                            accrued_percent: 'Начисленные проценты',
+                            paid_percents: 'Уплаченные проценты',
+                            percents_to_pay: 'Проценты к оплате',
+                            percent_to_pay: 'Проценты к оплате',
+                            total_to_pay: 'Итого к оплате',
+                            sum_to_pay: 'Сумма к оплате',
+                            main_debt: 'Основной долг',
+                            percent_debt: 'Долг по процентам',
+                            percents_debt: 'Долг по процентам',
+                            penalty: 'Пени / штраф',
+                            penalty_debt: 'Долг по пеням / штрафам',
+                            storage_fee: 'Хранение',
+                            storage_debt: 'Долг за хранение',
+                            commission: 'Комиссия',
+                            commission_sum: 'Сумма комиссии',
+                            commission_debt: 'Долг по комиссии'
+                        } %}
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <tbody>
+                                    {% for debtKey, debtValue in ticket.pawnTicketDebt %}
+                                        <tr>
+                                            <th class="text-nowrap" style="width: 35%;">
+                                                {{ debtLabels[debtKey] ?? debtKey|replace({'_': ' '})|capitalize }}
+                                            </th>
+                                            <td>
+                                                {% if debtValue is iterable %}
+                                                    {{ debtValue|join(', ') }}
+                                                {% elseif debtValue is same as(true) %}
+                                                    Да
+                                                {% elseif debtValue is same as(false) %}
+                                                    Нет
+                                                {% elseif debtValue is null or debtValue == '' %}
+                                                    -
+                                                {% elseif debtValue matches '/^-?\\d+(\\.\\d+)?$/' %}
+                                                    {{ debtValue|number_format(2, '.', ' ') }} {{ ticketCurrency }}
+                                                {% else %}
+                                                    {{ debtValue }}
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="mb-0">-</p>
+                    {% endif %}
                 </div>
             </div>
 
@@ -62,61 +158,148 @@
                     <h5 class="mb-0">Предметы залога</h5>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Название</th>
-                                    <th>Категория</th>
-                                    <th>Описание</th>
-                                    <th>Оценочная стоимость</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in ticket.pawnGoods %}
-                                <tr>
-                                    <td><strong>{{ item.name }}</strong></td>
-                                    <td>{% if item.category %}{{ item.category.name }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
-                                    <td>{{ item.description ?? '-' }}</td>
-                                    <td>{{ item.estimatedValue|number_format(2, '.', ' ') }} ₽</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    {% set goodTypeLabels = {
+                        jewelry: 'Ювелирное изделие',
+                        vehicle: 'Транспорт',
+                        mobile: 'Телефон',
+                        tablet: 'Планшет',
+                        tv_video: 'ТВ / видео',
+                        watch: 'Часы',
+                        clothes: 'Одежда',
+                        kids_clothes: 'Детская одежда',
+                        pc_component: 'Комплектующие ПК',
+                        other: 'Другое'
+                    } %}
+                    {% set jewelryLabels = {
+                        manufacturer: 'Производитель',
+                        uin: 'УИН',
+                        size: 'Размер / длина',
+                        metal_name: 'Металл',
+                        metal_standart_name: 'Проба',
+                        weight: 'Вес, г',
+                        weight_inserts: 'Вес вставок, г',
+                        product_type: 'Тип изделия',
+                        estimate_inserts: 'Оценка вставок',
+                        brand: 'Модель часов',
+                        color: 'Цвет',
+                        gender: 'Для кого',
+                        strap_type: 'Тип ремешка',
+                        mechanism: 'Тип механизма'
+                    } %}
+                    {% set vehicleLabels = {
+                        model: 'Марка / модель',
+                        product_year: 'Год выпуска',
+                        body_color: 'Цвет кузова',
+                        reg_number: 'Гос. номер',
+                        vin: 'VIN',
+                        engine_description: 'Двигатель',
+                        engine_volume: 'Объём двигателя, куб. см',
+                        chassis_number: 'Шасси / рама №',
+                        trailer_number: 'Кузов / прицеп №',
+                        pts_number: 'ПТС',
+                        pts_issued_by: 'Кем выдан ПТС',
+                        pts_issued_date: 'Дата выдачи ПТС',
+                        sts_number: 'СТС',
+                        sts_issued_by: 'Кем выдан СТС',
+                        sts_issued_date: 'Дата выдачи СТС'
+                    } %}
+                    <div class="row g-3">
+                        {% for item in ticket.pawnGoods %}
+                            {% set itemCurrency = item.currencyCode ?? ticketCurrency %}
+                            <div class="col-12">
+                                <div class="card border h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                                            <div>
+                                                <h6 class="mb-1">{{ item.name }}</h6>
+                                                <div class="text-muted small">
+                                                    {{ goodTypeLabels[item.goodType] ?? item.goodType }}
+                                                    {% if item.category %} · {{ item.category.name }}{% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <div class="fw-semibold">{{ item.estimatedValue|number_format(2, '.', ' ') }} {{ itemCurrency }}</div>
+                                                <div class="text-muted small">{{ item.statusEnum.label }}</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="row g-2">
+                                            <div class="col-md-4"><strong>Артикул:</strong> {{ item.article ?? '-' }}</div>
+                                            <div class="col-md-4"><strong>Серийный номер:</strong> {{ item.serialNumber ?? '-' }}</div>
+                                            <div class="col-md-4"><strong>Хранение:</strong> {{ item.storage ?? '-' }}</div>
+                                            <div class="col-md-12"><strong>Филиал:</strong> {{ item.workplace ? item.workplace.displayTitle : '-' }}</div>
+                                            <div class="col-md-12"><strong>Описание:</strong> {{ item.description ?? '-' }}</div>
+                                            {% if item.comment %}
+                                                <div class="col-md-12"><strong>Комментарий:</strong> {{ item.comment }}</div>
+                                            {% endif %}
+                                        </div>
+
+                                        {% if item.imagesLinks is not empty and ((item.imagesLinks.preview is defined and item.imagesLinks.preview) or (item.imagesLinks.full_size is defined and item.imagesLinks.full_size)) %}
+                                            <div class="mt-3">
+                                                <strong>Изображения:</strong>
+                                                <div class="d-flex flex-wrap gap-3 mt-2 align-items-start">
+                                                    {% if item.imagesLinks.preview is defined and item.imagesLinks.preview %}
+                                                        <a href="{{ item.imagesLinks.full_size ?? item.imagesLinks.preview }}" target="_blank" rel="noopener noreferrer" class="d-inline-block">
+                                                            <img
+                                                                src="{{ item.imagesLinks.preview }}"
+                                                                alt="Изображение предмета залога"
+                                                                loading="lazy"
+                                                                decoding="async"
+                                                                referrerpolicy="no-referrer"
+                                                                class="border rounded"
+                                                                style="max-width: 180px; max-height: 180px; object-fit: contain;"
+                                                            >
+                                                        </a>
+                                                    {% endif %}
+                                                    {% if item.imagesLinks.full_size is defined and item.imagesLinks.full_size %}
+                                                        <a href="{{ item.imagesLinks.full_size }}" target="_blank" rel="noopener noreferrer">Открыть полноразмерное изображение</a>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        {% endif %}
+
+                                        {% if item.jewelryExtra is not empty %}
+                                            <details class="mt-3">
+                                                <summary class="text-primary">Характеристики ювелирного изделия</summary>
+                                                <div class="row g-2 mt-2">
+                                                    {% for extraKey, extraValue in item.jewelryExtra %}
+                                                        {% if extraKey != 'dm_code' and extraValue is not null and extraValue != '' %}
+                                                            <div class="col-md-4">
+                                                                <strong>{{ jewelryLabels[extraKey] ?? extraKey|replace({'_': ' '})|capitalize }}:</strong> {{ extraValue }}
+                                                            </div>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
+                                            </details>
+                                        {% endif %}
+
+                                        {% if item.vehicleExtra is not empty %}
+                                            <details class="mt-3">
+                                                <summary class="text-primary">Характеристики транспорта</summary>
+                                                <div class="row g-2 mt-2">
+                                                    {% for extraKey, extraValue in item.vehicleExtra %}
+                                                        {% if extraValue is not null and extraValue != '' %}
+                                                            <div class="col-md-4">
+                                                                <strong>{{ vehicleLabels[extraKey] ?? extraKey|replace({'_': ' '})|capitalize }}:</strong> {{ extraValue }}
+                                                            </div>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
+                                            </details>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
+            {% else %}
+                <div class="alert alert-info">
+                    Для этого залогового билета пока нет предметов залога.
+                </div>
             {% endif %}
 
-            {% if ticket.payments|length > 0 %}
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">История платежей</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                                <tr>
-                                    <th>Дата</th>
-                                    <th>Сумма</th>
-                                    <th>Тип платежа</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for payment in ticket.payments %}
-                                <tr>
-                                    <td>{{ payment.paymentDate|date('d.m.Y H:i') }}</td>
-                                    <td>{{ payment.amount|number_format(2, '.', ' ') }} ₽</td>
-                                    <td>{{ payment.paymentType }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
         </div>
 
         <div class="col-md-4 mb-4">
@@ -126,7 +309,7 @@
                 </div>
                 <div class="card-body">
                     <p><strong>ФИО:</strong><br>
-                        <a href="{{ path('app_admin_client_view', {id: ticket.client.id}) }}">
+                        <a href="{{ path('app_admin_client_view', {clientType: ticket.client.clientType, externalId: ticket.client.externalId}) }}">
                             {{ ticket.client.fullName }}
                         </a>
                     </p>

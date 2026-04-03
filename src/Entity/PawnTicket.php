@@ -2,6 +2,7 @@
 
 namespace App\Entity;
 
+use App\Enum\PawnTicketStatus;
 use App\Repository\PawnTicketRepository;
 use DateTime;
 use DateTimeInterface;
@@ -15,19 +16,14 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_ticket_external_id', columns: ['external_id'])]
 #[ORM\Index(name: 'idx_ticket_status', columns: ['status'])]
 #[ORM\Index(name: 'idx_ticket_client_issue_date', columns: ['client_id', 'issue_date'])]
-#[ORM\Index(name: 'idx_ticket_open_issue_date', columns: ['issue_date'], options: ['where' => 'status IN (2, 3, 4)'])]
+#[ORM\Index(name: 'idx_ticket_workplace_status_due', columns: ['workplace_id', 'status', 'due_date'])]
+#[ORM\Index(name: 'idx_ticket_open_issue_date', columns: ['issue_date'], options: ['where' => '(status = ANY (ARRAY[2, 3, 4]))'])]
 class PawnTicket
 {
-    public const int STATUS_FOR_SALE = 1;
-    public const int STATUS_OPEN = 2;
-    public const int STATUS_OVERDUE = 3;
-    public const int STATUS_OVERDUE_READY_FOR_SALE = 4;
-    public const int STATUS_CLOSED = 5;
-
     public const array OPEN_STATUSES = [
-        self::STATUS_OPEN,
-        self::STATUS_OVERDUE,
-        self::STATUS_OVERDUE_READY_FOR_SALE,
+        PawnTicketStatus::OPEN->value,
+        PawnTicketStatus::OVERDUE->value,
+        PawnTicketStatus::OVERDUE_READY_FOR_SALE->value,
     ];
 
     #[ORM\Id]
@@ -42,12 +38,18 @@ class PawnTicket
     #[ORM\Column(type: 'integer')]
     private int $externalId;
 
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $pawnChainId = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $tariffId = null;
+
     #[ORM\ManyToOne(targetEntity: Client::class, inversedBy: 'pawnTickets')]
     #[ORM\JoinColumn(nullable: false)]
     private Client $client;
 
-    #[ORM\Column(type: 'integer')]
-    private int $status;
+    #[ORM\Column(type: 'integer', enumType: PawnTicketStatus::class)]
+    private PawnTicketStatus $status;
 
     #[ORM\Column(type: 'date', nullable: true)]
     private ?DateTimeInterface $issueDate = null;
@@ -58,17 +60,39 @@ class PawnTicket
     #[ORM\Column(type: 'date', nullable: true)]
     private ?DateTimeInterface $closeDate = null;
 
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $duration = null;
+
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
     private ?string $pledgeAmount = null;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
     private ?string $loanAmount = null;
 
+    #[ORM\ManyToOne(targetEntity: Currency::class, inversedBy: 'pawnTickets')]
+    #[ORM\JoinColumn(name: 'currency_code', referencedColumnName: 'code', nullable: true)]
+    private ?Currency $currency = null;
+
     #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true)]
     private ?string $interestRate = null;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
+    private ?string $paidPercents = null;
+
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
     private ?string $currentDebt = null;
+
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $pawnTicketDebt = null;
+
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $comment = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $entityId = null;
+
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $testOperation = false;
 
     #[ORM\Column(type: 'datetime')]
     private DateTime $createdAt;
@@ -84,7 +108,7 @@ class PawnTicket
         $this->pawnGoods = new ArrayCollection();
         $this->createdAt = new DateTime();
         $this->updatedAt = new DateTime();
-        $this->status = self::STATUS_OPEN;
+        $this->status = PawnTicketStatus::OPEN;
     }
 
     public function getExternalId(): int
@@ -95,6 +119,30 @@ class PawnTicket
     public function setExternalId(int $externalId): static
     {
         $this->externalId = $externalId;
+        return $this;
+    }
+
+    public function getPawnChainId(): ?int
+    {
+        return $this->pawnChainId;
+    }
+
+    public function setPawnChainId(?int $pawnChainId): static
+    {
+        $this->pawnChainId = $pawnChainId;
+
+        return $this;
+    }
+
+    public function getTariffId(): ?int
+    {
+        return $this->tariffId;
+    }
+
+    public function setTariffId(?int $tariffId): static
+    {
+        $this->tariffId = $tariffId;
+
         return $this;
     }
 
@@ -122,12 +170,19 @@ class PawnTicket
 
     public function getStatus(): int
     {
+        return $this->status->value;
+    }
+
+    public function getStatusEnum(): PawnTicketStatus
+    {
         return $this->status;
     }
 
-    public function setStatus(int $status): static
+    public function setStatus(int|PawnTicketStatus $status): static
     {
-        $this->status = $status;
+        $this->status = $status instanceof PawnTicketStatus
+            ? $status
+            : (PawnTicketStatus::tryFrom($status) ?? PawnTicketStatus::OPEN);
         return $this;
     }
 
@@ -164,6 +219,18 @@ class PawnTicket
         return $this;
     }
 
+    public function getDuration(): ?int
+    {
+        return $this->duration;
+    }
+
+    public function setDuration(?int $duration): static
+    {
+        $this->duration = $duration;
+
+        return $this;
+    }
+
     public function getPledgeAmount(): ?string
     {
         return $this->pledgeAmount;
@@ -186,6 +253,23 @@ class PawnTicket
         return $this;
     }
 
+    public function getCurrency(): ?Currency
+    {
+        return $this->currency;
+    }
+
+    public function setCurrency(?Currency $currency): static
+    {
+        $this->currency = $currency;
+
+        return $this;
+    }
+
+    public function getCurrencyCode(): ?string
+    {
+        return $this->currency?->getCode();
+    }
+
     public function getInterestRate(): ?string
     {
         return $this->interestRate;
@@ -197,6 +281,18 @@ class PawnTicket
         return $this;
     }
 
+    public function getPaidPercents(): ?string
+    {
+        return $this->paidPercents;
+    }
+
+    public function setPaidPercents(?string $paidPercents): static
+    {
+        $this->paidPercents = $paidPercents;
+
+        return $this;
+    }
+
     public function getCurrentDebt(): ?string
     {
         return $this->currentDebt;
@@ -205,6 +301,54 @@ class PawnTicket
     public function setCurrentDebt(?string $currentDebt): static
     {
         $this->currentDebt = $currentDebt;
+        return $this;
+    }
+
+    public function getPawnTicketDebt(): ?array
+    {
+        return $this->pawnTicketDebt;
+    }
+
+    public function setPawnTicketDebt(?array $pawnTicketDebt): static
+    {
+        $this->pawnTicketDebt = $pawnTicketDebt;
+
+        return $this;
+    }
+
+    public function getComment(): ?string
+    {
+        return $this->comment;
+    }
+
+    public function setComment(?string $comment): static
+    {
+        $this->comment = $comment;
+
+        return $this;
+    }
+
+    public function getEntityId(): ?int
+    {
+        return $this->entityId;
+    }
+
+    public function setEntityId(?int $entityId): static
+    {
+        $this->entityId = $entityId;
+
+        return $this;
+    }
+
+    public function isTestOperation(): bool
+    {
+        return $this->testOperation;
+    }
+
+    public function setTestOperation(bool|int|string|null $testOperation): static
+    {
+        $this->testOperation = filter_var($testOperation, FILTER_VALIDATE_BOOL);
+
         return $this;
     }
 
@@ -269,19 +413,12 @@ class PawnTicket
 
     public function isOpen(): bool
     {
-        return in_array($this->status, self::OPEN_STATUSES, true);
+        return $this->status->isOpen();
     }
 
     public function getStatusLabel(): string
     {
-        return match ($this->status) {
-            self::STATUS_FOR_SALE => 'На реализации',
-            self::STATUS_OPEN => 'Открыт',
-            self::STATUS_OVERDUE => 'Просрочен',
-            self::STATUS_OVERDUE_READY_FOR_SALE => 'Просрочен (готов к продаже)',
-            self::STATUS_CLOSED => 'Закрыт',
-            default => 'Неизвестно',
-        };
+        return $this->status->label();
     }
 
     #[ORM\PreUpdate]

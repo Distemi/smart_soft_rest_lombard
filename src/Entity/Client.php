@@ -14,6 +14,16 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[ORM\HasLifecycleCallbacks]
 #[ORM\Index(columns: ['external_id'], name: 'idx_client_external_id')]
 #[ORM\Index(columns: ['surname', 'name', 'patronymic'], name: 'idx_client_fullname')]
+#[ORM\Index(columns: ['phone'], name: 'idx_client_phone')]
+#[ORM\Index(columns: ['email'], name: 'idx_client_email')]
+#[ORM\Index(columns: ['inn'], name: 'idx_client_inn')]
+#[ORM\InheritanceType('JOINED')]
+#[ORM\DiscriminatorColumn(name: 'client_type', type: 'string', length: 32)]
+#[ORM\DiscriminatorMap([
+    'client' => Client::class,
+    'natural_person' => NaturalPerson::class,
+    'legal_person' => LegalPerson::class,
+])]
 class Client implements UserInterface
 {
     #[ORM\Id]
@@ -39,6 +49,9 @@ class Client implements UserInterface
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $email = null;
 
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
+    private ?string $inn = null;
+
     #[ORM\Column(type: 'string', length: 10, nullable: true)]
     private ?string $passportSeries = null;
 
@@ -50,6 +63,9 @@ class Client implements UserInterface
 
     #[ORM\Column(type: 'datetime')]
     private ?DateTimeInterface $updatedAt;
+
+    #[ORM\Column(type: 'date', nullable: true)]
+    private ?DateTimeInterface $dateAdded = null;
 
     #[ORM\OneToMany(targetEntity: PawnTicket::class, mappedBy: 'client', orphanRemoval: true)]
     private Collection $pawnTickets;
@@ -132,6 +148,17 @@ class Client implements UserInterface
         return $this;
     }
 
+    public function getInn(): ?string
+    {
+        return $this->inn;
+    }
+
+    public function setInn(?string $inn): static
+    {
+        $this->inn = $inn;
+        return $this;
+    }
+
     public function getPassportSeries(): ?string
     {
         return $this->passportSeries;
@@ -173,6 +200,18 @@ class Client implements UserInterface
     public function setUpdatedAt(DateTimeInterface $updatedAt): static
     {
         $this->updatedAt = $updatedAt;
+        return $this;
+    }
+
+    public function getDateAdded(): ?DateTimeInterface
+    {
+        return $this->dateAdded;
+    }
+
+    public function setDateAdded(?DateTimeInterface $dateAdded): static
+    {
+        $this->dateAdded = $dateAdded;
+
         return $this;
     }
 
@@ -219,6 +258,42 @@ class Client implements UserInterface
             $parts[] = $this->patronymic;
         }
         return implode(' ', $parts);
+    }
+
+    public function isNaturalPerson(): bool
+    {
+        return $this instanceof NaturalPerson;
+    }
+
+    public function isLegalPerson(): bool
+    {
+        return $this instanceof LegalPerson;
+    }
+
+    public function getClientType(): string
+    {
+        if ($this->isLegalPerson()) {
+            return 'legal_person';
+        }
+
+        if ($this->isNaturalPerson()) {
+            return 'natural_person';
+        }
+
+        return 'client';
+    }
+
+    public function getClientTypeLabel(): string
+    {
+        if ($this->isLegalPerson()) {
+            return 'Юр. лицо';
+        }
+
+        if ($this->isNaturalPerson()) {
+            return 'Физ. лицо';
+        }
+
+        return 'Клиент';
     }
 
     #[ORM\PreUpdate]

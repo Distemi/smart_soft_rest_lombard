@@ -10,10 +10,11 @@
 <div class="container-fluid my-4">
     <h1 class="mb-4">Филиалы</h1>
 
-    <div class="card">
-        <div class="card-body">
+        <div class="card">
+            <div class="card-body">
+            {% if workplaces|length > 0 %}
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
                             <th>ID</th>
@@ -29,10 +30,11 @@
                     <tbody>
                         {% for workplace in workplaces %}
                         <tr>
-                            <td>{{ workplace.id }}</td>
+                            <td class="text-muted small">{{ workplace.id }}</td>
                             <td>
-                                <strong>{{ workplace.displayTitle }}</strong>
-                                <div class="text-muted small">внешний id: {{ workplace.externalId }}</div>
+                                <a href="{{ path('app_admin_workplace_view', {id: workplace.id}) }}" class="fw-semibold text-decoration-none">
+                                    {{ workplace.displayTitle }}
+                                </a>
                             </td>
                             <td>{{ workplace.address ?? '-' }}</td>
                             <td>{{ workplace.phone|format_phone }}</td>
@@ -51,15 +53,16 @@
                                 </a>
                             </td>
                         </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="8" class="text-center">Филиалы не найдены</td>
-                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            {% else %}
+                <div class="alert alert-info mb-0">
+                    Филиалы пока не найдены. После загрузки данных они появятся здесь.
+                </div>
+            {% endif %}
+            </div>
         </div>
-    </div>
 </div>
 {% endblock %}

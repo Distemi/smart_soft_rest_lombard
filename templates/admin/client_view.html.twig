@@ -17,6 +17,12 @@
 
     <h1 class="mb-4">Клиент: {{ client.fullName }}</h1>
 
+    {% if client.isNaturalPerson and client.warningMessage %}
+        <div class="alert alert-warning">
+            <strong>Предупреждение:</strong> {{ client.warningMessage }}
+        </div>
+    {% endif %}
+
     <div class="row">
         <div class="col-md-6 mb-4">
             <div class="card">
@@ -24,14 +30,96 @@
                     <h5 class="mb-0">Личная информация</h5>
                 </div>
                 <div class="card-body">
-                    <p><strong>ID:</strong> {{ client.id }}</p>
-                    <p><strong>Внешний ID:</strong> {{ client.externalId }}</p>
-                    <p><strong>ФИО:</strong> {{ client.fullName }}</p>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                        <span class="badge bg-secondary">{{ client.clientTypeLabel }}</span>
+                        <span class="text-muted small">ID {{ client.externalId }}</span>
+                    </div>
+                    <p class="fs-5 fw-semibold mb-3">{{ client.fullName }}</p>
+                    <p><strong>ИНН:</strong> {{ client.inn ?? '-' }}</p>
                     <p><strong>Телефон:</strong> {{ client.phone|format_phone }}</p>
                     <p><strong>Email:</strong> {{ client.email ?? '-' }}</p>
                     {% if client.passportSeries or client.passportNumber %}
                         <p><strong>Паспорт:</strong> {{ client.passportSeries }} {{ client.passportNumber }}</p>
                     {% endif %}
+
+                    {% if client.isNaturalPerson %}
+                        <hr>
+                        <h6 class="mb-3">Поля физ. лица</h6>
+                        <p><strong>Дата рождения:</strong> {{ client.birthDate ? client.birthDate|date('d.m.Y') : '-' }}</p>
+                        <p><strong>Место рождения:</strong> {{ client.placeOfBirth ?? '-' }}</p>
+                        <p><strong>Адрес регистрации:</strong> {{ client.address ?? '-' }}</p>
+                        <p><strong>Фактический адрес:</strong> {{ client.actualAddress ?? '-' }}</p>
+                        <p><strong>Гражданство (код):</strong> {{ client.nationality ?? '-' }}</p>
+                        <p><strong>СНИЛС:</strong> {{ client.snils ?? '-' }}</p>
+                        <p><strong>Фото:</strong></p>
+                        {% if client.photoLink %}
+                            <div class="mb-2 border rounded bg-light d-inline-flex align-items-center justify-content-center p-2" style="width: 220px; height: 220px; overflow: hidden;">
+                                <img
+                                    src="{{ client.photoLink }}"
+                                    alt="Фото клиента"
+                                    loading="lazy"
+                                    decoding="async"
+                                    referrerpolicy="no-referrer"
+                                    class="img-fluid"
+                                    style="max-width: 100%; max-height: 100%; object-fit: contain;"
+                                >
+                            </div>
+                            <div class="small text-muted mb-2">Превью ограничено размером 220x220.</div>
+                            <details class="mb-2">
+                                <summary class="text-primary">Открыть полный просмотр</summary>
+                                <div class="mt-2 border rounded bg-light p-2" style="max-width: 720px; overflow: auto;">
+                                    <img
+                                        src="{{ client.photoLink }}"
+                                        alt="Фото клиента"
+                                        loading="lazy"
+                                        decoding="async"
+                                        referrerpolicy="no-referrer"
+                                        class="img-fluid w-100"
+                                        style="max-height: 70vh; object-fit: contain;"
+                                    >
+                                </div>
+                            </details>
+                        {% else %}
+                            <p class="mb-2">-</p>
+                        {% endif %}
+                        <p><strong>Номер карты лояльности:</strong> {{ client.loyaltyCardNumber ?? '-' }}</p>
+                        <p><strong>Скидка карты лояльности:</strong>
+                            {% if client.loyaltyCardDiscount is not empty %}
+                                {% set discountLabels = {
+                                    discount_lombard: 'Скидка на проценты ломбарда',
+                                    discount_sell: 'Скидка при покупке товаров',
+                                    discount_sell_realization: 'Скидка при покупке товаров с реализации'
+                                } %}
+                                <ul class="mb-0 ps-3">
+                                    {% for discountKey, discountValue in client.loyaltyCardDiscount %}
+                                        <li>{{ discountLabels[discountKey] ?? discountKey|replace({'_': ' '})|capitalize }}: {{ discountValue }}%</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </p>
+                        <p><strong>Бонусы:</strong> {{ client.bonuses }}</p>
+                        <p><strong>ID рекламного канала:</strong> {{ client.adChannelId ?? '-' }}</p>
+                        <p><strong>Дата добавления:</strong> {{ client.dateAdded ? client.dateAdded|date('d.m.Y') : '-' }}</p>
+                        <p><strong>Доп. информация:</strong> {{ client.additionalInfo ?? '-' }}</p>
+                        <p><strong>Предупреждение:</strong> {{ client.warningMessage ?? '-' }}</p>
+                    {% endif %}
+
+                    {% if client.isLegalPerson %}
+                        <hr>
+                        <h6 class="mb-3">Поля юр. лица</h6>
+                        <p><strong>Юридический адрес:</strong> {{ client.legalAddress ?? '-' }}</p>
+                        <p><strong>Директор:</strong> {{ client.directorFio ?? '-' }}</p>
+                        <p><strong>Главный бухгалтер:</strong> {{ client.chiefAccountantFio ?? '-' }}</p>
+                        <p><strong>КПП:</strong> {{ client.kpp ?? '-' }}</p>
+                        <p><strong>ОГРН:</strong> {{ client.ogrn ?? '-' }}</p>
+                        <p><strong>ОКПО:</strong> {{ client.okpo ?? '-' }}</p>
+                        <p><strong>ОКТМО:</strong> {{ client.oktmo ?? '-' }}</p>
+                        <p><strong>ID рекламного канала:</strong> {{ client.adChannelId ?? '-' }}</p>
+                        <p><strong>Дата добавления:</strong> {{ client.dateAdded ? client.dateAdded|date('d.m.Y') : '-' }}</p>
+                    {% endif %}
+
                     <p><strong>Дата создания:</strong> {{ client.createdAt|date('d.m.Y H:i') }}</p>
                     <p><strong>Дата обновления:</strong> {{ client.updatedAt|date('d.m.Y H:i') }}</p>
                 </div>
@@ -47,7 +135,9 @@
                     {% if client.pawnTickets|length > 0 %}
                         <div class="list-group">
                             {% for ticket in client.pawnTickets %}
-                                <a href="{{ path('app_admin_ticket_view', {workplaceId: ticket.workplace.id, ticketNumber: ticket.ticketNumber}) }}" 
+                                {% set ticketCurrency = ticket.currencyCode ?? 'RUB' %}
+                                {% set ticketUrl = ticket.workplace ? path('app_admin_ticket_view', {workplaceId: ticket.workplace.id, ticketNumber: ticket.ticketNumber}) : null %}
+                                <{{ ticketUrl ? 'a' : 'div' }}{% if ticketUrl %} href="{{ ticketUrl }}"{% endif %}
                                    class="list-group-item list-group-item-action">
                                     <div class="d-flex w-100 justify-content-between">
                                         <h6 class="mb-1">{{ ticket.ticketNumber }}</h6>
@@ -57,13 +147,15 @@
                                             <span class="badge bg-secondary">{{ ticket.statusLabel }}</span>
                                         {% endif %}
                                     </div>
-                                    <p class="mb-1">Сумма: {{ ticket.loanAmount|number_format(2, '.', ' ') }} ₽</p>
-                                    <small>{{ ticket.issueDate|date('d.m.Y') }}</small>
-                                </a>
+                                    <p class="mb-1">Сумма: {{ ticket.loanAmount is not null ? ticket.loanAmount|number_format(2, '.', ' ') ~ ' ' ~ ticketCurrency : '-' }}</p>
+                                    <small>{{ ticket.issueDate ? ticket.issueDate|date('d.m.Y') : '-' }}</small>
+                                </{{ ticketUrl ? 'a' : 'div' }}>
                             {% endfor %}
                         </div>
                     {% else %}
-                        <p class="text-muted">Залоговые билеты отсутствуют</p>
+                        <div class="alert alert-info mb-0">
+                            У клиента пока нет залоговых билетов.
+                        </div>
                     {% endif %}
                 </div>
             </div>

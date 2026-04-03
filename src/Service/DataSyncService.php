@@ -5,8 +5,12 @@ namespace App\Service;
 use App\Entity\PawnGoodCategory;
 use App\Entity\Workplace;
 use App\Entity\Client;
+use App\Entity\Currency;
+use App\Entity\LegalPerson;
+use App\Entity\NaturalPerson;
 use App\Entity\PawnTicket;
 use App\Entity\PawnGood;
+use App\Repository\CurrencyRepository;
 use App\Repository\WorkplaceRepository;
 use App\Repository\ClientRepository;
 use App\Repository\PawnTicketRepository;
@@ -19,23 +23,27 @@ use RuntimeException;
 
 class DataSyncService
 {
+    private const string CLIENT_TYPE_NATURAL_PERSON = 'natural_person';
+    private const string CLIENT_TYPE_LEGAL_PERSON = 'legal_person';
     private const array TICKET_EXTERNAL_ID_KEYS = ['id', 'pawn_chain_id'];
     private const array PAWN_TICKET_ID_KEYS = ['id', 'ticket_id', 'pawn_ticket_id', 'external_id'];
     private const array DATE_FORMATS = ['d.m.Y, H:i', 'd.m.Y'];
 
-    private const array GOODS_TYPE_MAPPING = [
+    private const array GOODS_TYPES = [
         'jewelry' => 'jewelry',
-        'vehicle' => 'auto',
-        'auto' => 'auto',
-        'mobile' => 'electronics',
-        'tablet' => 'electronics',
-        'tv_video' => 'electronics',
-        'watch' => 'watches',
-        'watches' => 'watches',
-        'clothes' => 'electronics',
-        'pc_component' => 'electronics',
+        'vehicle' => 'vehicle',
+        'mobile' => 'mobile',
+        'tablet' => 'tablet',
+        'tv_video' => 'tv_video',
+        'watch' => 'watch',
+        'clothes' => 'clothes',
+        'kids_clothes' => 'kids_clothes',
+        'pc_component' => 'pc_component',
         'other' => 'other',
     ];
+
+    private const int DEFAULT_CATEGORY_ID = 0;
+    private const string DEFAULT_CATEGORY_CODE = 'other';
 
     public function __construct(
         private readonly SmartLombardApiService $apiService,
@@ -43,6 +51,7 @@ class DataSyncService
         private readonly ClientRepository $clientRepository,
         private readonly PawnTicketRepository $pawnTicketRepository,
         private readonly PawnGoodCategoryRepository $categoryRepository,
+        private readonly CurrencyRepository $currencyRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly LoggerInterface $logger
     ) {
@@ -69,7 +78,9 @@ class DataSyncService
 
         $this->syncCategories($stats);
         $activeExternalIds = $this->syncWorkplaces($stats);
-        $this->cleanupDeletedWorkplaces($activeExternalIds, $stats);
+        if ($activeExternalIds !== null) {
+            $this->cleanupDeletedWorkplaces($activeExternalIds, $stats);
+        }
         $workplaces = $this->workplaceRepository->findAllActive();
 
         foreach ($workplaces as $workplace) {
@@ -101,8 +112,8 @@ class DataSyncService
             $categories = $this->apiService->getAllCategories();
 
             foreach ($categories as $categoryData) {
-                $externalId = (int) $categoryData['id'];
-                $category = $this->categoryRepository->findOneBy(['externalId' => $externalId]);
+                $categoryId = (int) $categoryData['id'];
+                $category = $this->categoryRepository->findById($categoryId);
 
                 if (!$category) {
                     $category = $this->categoryRepository->findOneBy(['code' => $categoryData['name']]);
@@ -116,13 +127,15 @@ class DataSyncService
                     $stats['categories_updated']++;
                 }
 
-                $category->setExternalId($externalId)
-                    ->setCode($categoryData['name'] ?? 'category_' . $externalId)
-                    ->setName($categoryData['name'] ?? 'Категория ' . $externalId);
+                $category->setId($categoryId)
+                    ->setCode($categoryData['name'] ?? 'category_' . $categoryId)
+                    ->setName($categoryData['name'] ?? 'Категория ' . $categoryId)
+                    ->setSystemCategory((int) ($categoryData['system_category'] ?? 0));
 
                 $this->entityManager->persist($category);
             }
 
+            $this->ensureFallbackCategory();
             $this->entityManager->flush();
         } catch (Exception $e) {
             $stats['errors'][] = 'Ошибка синхронизации категорий: ' . $e->getMessage();
@@ -130,20 +143,20 @@ class DataSyncService
         }
     }
 
-    private function syncWorkplaces(array &$stats): array
+    private function syncWorkplaces(array &$stats): ?array
     {
         try {
             $workplaces = $this->apiService->getWorkplaces();
-            $activeExternalIds = [];
+            $activeWorkplaceIds = [];
 
             foreach ($workplaces as $workplaceData) {
-                $externalId = (int) $workplaceData['id'];
-                $activeExternalIds[] = $externalId;
-                $workplace = $this->workplaceRepository->findByExternalId($externalId);
+                $workplaceId = (int) $workplaceData['id'];
+                $activeWorkplaceIds[] = $workplaceId;
+                $workplace = $this->workplaceRepository->findById($workplaceId);
 
                 if (!$workplace) {
                     $workplace = new Workplace();
-                    $workplace->setExternalId($externalId);
+                    $workplace->setId($workplaceId);
                     $stats['workplaces_created']++;
                 } else {
                     $stats['workplaces_updated']++;
@@ -152,26 +165,42 @@ class DataSyncService
                 $workplace->setTitle($workplaceData['title'] ?? null)
                     ->setCity($workplaceData['city'] ?? null)
                     ->setAddress($workplaceData['address'] ?? null)
+                    ->setOkato($workplaceData['okato'] ?? null)
                     ->setPhone($workplaceData['phone'] ?? null)
-                    ->setIsActive($workplaceData['is_active'] ?? true)
+                    ->setState((int) ($workplaceData['state'] ?? 1))
+                    ->setImageLinks($this->normalizeArrayValue($workplaceData['image_links'] ?? null))
+                    ->setIsActive(((int) ($workplaceData['state'] ?? 1)) === 1)
                     ->setUpdatedAt(new DateTime());
 
                 $this->entityManager->persist($workplace);
             }
 
             $this->entityManager->flush();
-            return array_values(array_unique($activeExternalIds));
+            return array_values(array_unique($activeWorkplaceIds));
         } catch (Exception $e) {
             $stats['errors'][] = 'Ошибка синхронизации workplaces: ' . $e->getMessage();
             $this->logger->error('Ошибка синхронизации workplaces', ['error' => $e->getMessage()]);
-            return [];
+            return null;
         }
     }
 
     private function syncWorkplaceData(Workplace $workplace, array &$stats): void
     {
-        $workplaceId = (int) $workplace->getExternalId();
-        $tickets = $this->apiService->getAllPawnTicketsByWorkplace($workplaceId);
+        $workplaceId = (int) $workplace->getId();
+        try {
+            $tickets = $this->apiService->getAllPawnTicketsByWorkplace($workplaceId);
+        } catch (RuntimeException $e) {
+            if (str_contains($e->getMessage(), 'HTTP 412')) {
+                $this->logger->warning('Пропуск филиала из-за API 412 при загрузке билетов', [
+                    'workplace_external_id' => $workplaceId,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return;
+            }
+
+            throw $e;
+        }
 
         $clientIds = $this->collectClientIds($tickets);
         $clientsData = $this->fetchClients($clientIds, $stats);
@@ -198,9 +227,9 @@ class DataSyncService
         $this->cleanupDeletedTickets($workplace, $tickets, $stats);
     }
 
-    private function cleanupDeletedWorkplaces(array $activeExternalIds, array &$stats): void
+    private function cleanupDeletedWorkplaces(array $activeWorkplaceIds, array &$stats): void
     {
-        $removedWorkplaces = $this->workplaceRepository->findByExternalIdsNotIn($activeExternalIds);
+        $removedWorkplaces = $this->workplaceRepository->findByIdsNotIn($activeWorkplaceIds);
 
         foreach ($removedWorkplaces as $workplace) {
             if ($workplace->getPawnTickets()->count() === 0) {
@@ -250,10 +279,10 @@ class DataSyncService
     private function syncClients(array $clientsData, array &$stats): array
     {
         $clients = [];
-        $existingClients = $this->clientRepository->findIndexedByExternalIds(array_keys($clientsData));
+        $existingClients = $this->clientRepository->findIndexedByTypedExternalIds($this->collectClientRefsByType($clientsData));
 
-        foreach ($clientsData as $clientId => $clientData) {
-            $clients[(string) $clientId] = $this->syncClient($clientData, $stats, $existingClients);
+        foreach ($clientsData as $clientKey => $clientData) {
+            $clients[$clientKey] = $this->syncClient($clientKey, $clientData, $stats, $existingClients);
         }
 
         return $clients;
@@ -261,25 +290,47 @@ class DataSyncService
 
     private function collectClientIds(array $tickets): array
     {
-        $ids = [];
+        $ids = [
+            self::CLIENT_TYPE_NATURAL_PERSON => [],
+            self::CLIENT_TYPE_LEGAL_PERSON => [],
+        ];
+
         foreach ($tickets as $ticket) {
             if (!empty($ticket['client_natural_person_id'])) {
-                $ids[$ticket['client_natural_person_id']] = true;
+                $ids[self::CLIENT_TYPE_NATURAL_PERSON][(int) $ticket['client_natural_person_id']] = true;
+            }
+
+            if (!empty($ticket['client_legal_person_id'])) {
+                $ids[self::CLIENT_TYPE_LEGAL_PERSON][(int) $ticket['client_legal_person_id']] = true;
             }
         }
-        return array_keys($ids);
+
+        return [
+            self::CLIENT_TYPE_NATURAL_PERSON => array_keys($ids[self::CLIENT_TYPE_NATURAL_PERSON]),
+            self::CLIENT_TYPE_LEGAL_PERSON => array_keys($ids[self::CLIENT_TYPE_LEGAL_PERSON]),
+        ];
     }
 
-    private function fetchClients(array $clientIds, array &$stats): array
+    private function fetchClients(array $clientRefs, array &$stats): array
     {
         $clientsData = [];
-        foreach ($clientIds as $clientId) {
+
+        foreach ($clientRefs[self::CLIENT_TYPE_NATURAL_PERSON] ?? [] as $clientId) {
             try {
-                $clientsData[$clientId] = $this->apiService->getClient($clientId);
+                $clientsData[$this->buildClientKey(self::CLIENT_TYPE_NATURAL_PERSON, (int) $clientId)] = $this->apiService->getNaturalPersonClient((int) $clientId);
             } catch (Exception $e) {
-                $stats['errors'][] = sprintf('Клиент %d: %s', $clientId, $e->getMessage());
+                $stats['errors'][] = sprintf('Клиент-физлицо %d: %s', $clientId, $e->getMessage());
             }
         }
+
+        foreach ($clientRefs[self::CLIENT_TYPE_LEGAL_PERSON] ?? [] as $clientId) {
+            try {
+                $clientsData[$this->buildClientKey(self::CLIENT_TYPE_LEGAL_PERSON, (int) $clientId)] = $this->apiService->getLegalPersonClient((int) $clientId);
+            } catch (Exception $e) {
+                $stats['errors'][] = sprintf('Клиент-юрлицо %d: %s', $clientId, $e->getMessage());
+            }
+        }
+
         return $clientsData;
     }
 
@@ -292,11 +343,7 @@ class DataSyncService
             throw new RuntimeException('Пустой номер билета (document_number)');
         }
 
-        $ticket = $this->pawnTicketRepository->findOneBy([
-            'workplace' => $workplace,
-            'ticketNumber' => $ticketNumber,
-        ]);
-
+        $ticket = $this->pawnTicketRepository->findOneByWorkplaceAndTicketNumber($workplace, $ticketNumber);
         if (!$ticket && $externalId !== null) {
             $ticket = $this->pawnTicketRepository->findByExternalId($externalId);
         }
@@ -304,38 +351,53 @@ class DataSyncService
         if (!$ticket) {
             $ticket = new PawnTicket();
             $stats['tickets_created']++;
+            $isNewTicket = true;
         } else {
             $stats['tickets_updated']++;
+            $isNewTicket = false;
         }
 
         if ($externalId !== null) {
             $ticket->setExternalId($externalId);
         }
 
+        $pledgeAmountRaw = $data['pledge_amount'] ?? $data['loan_amount'] ?? null;
+
         $ticket->setTicketNumber($ticketNumber)
+            ->setPawnChainId($this->extractNumericValue($data, ['pawn_chain_id']))
+            ->setTariffId($this->extractNumericValue($data, ['tariff_id']))
             ->setStatus((int) ($data['status'] ?? 0))
-            ->setLoanAmount((string) ($data['loan_amount'] ?? '0'))
-            ->setPledgeAmount((string) ($data['loan_amount'] ?? '0'))
-            ->setInterestRate((string) ($data['accrued_percent'] ?? '0'))
-            ->setCurrentDebt((string) ($data['pawn_ticket_debt']['sum_debt'] ?? '0'))
+            ->setDuration($this->extractNumericValue($data, ['duration']))
+            ->setLoanAmount($this->normalizeDecimalValue($data['loan_amount'] ?? null, 10, 2) ?? '0.00')
+            ->setPledgeAmount($this->normalizeDecimalValue($pledgeAmountRaw, 10, 2) ?? '0.00')
+            ->setInterestRate($this->normalizeDecimalValue($data['accrued_percent'] ?? null, 5, 2) ?? '0.00')
+            ->setPaidPercents($this->normalizeDecimalValue($data['paid_percents'] ?? null, 10, 2) ?? '0.00')
+            ->setCurrentDebt($this->normalizeDecimalValue($data['pawn_ticket_debt']['sum_debt'] ?? null, 10, 2) ?? '0.00')
+            ->setPawnTicketDebt($this->normalizeArrayValue($data['pawn_ticket_debt'] ?? null))
+            ->setComment($data['comment'] ?? null)
+            ->setEntityId($this->extractNumericValue($data, ['entity_id']))
+            ->setTestOperation($data['test_operation'] ?? false)
+            ->setCurrency($this->resolveCurrency($data['currency_code'] ?? null))
             ->setWorkplace($workplace)
+            ->setIssueDate($this->parseApiDate($data['open_date'] ?? null))
+            ->setDueDate($this->parseApiDate($data['end_date'] ?? null))
+            ->setCloseDate($this->parseApiDate($data['close_date'] ?? null))
             ->setUpdatedAt(new DateTime());
 
-        $issueDate = $this->parseApiDate($data['open_date'] ?? null);
-        if ($issueDate !== null) {
-            $ticket->setIssueDate($issueDate);
+        $clientKey = $this->resolveTicketClientKey($data);
+        $clientAssigned = false;
+        if ($clientKey !== null && isset($clients[$clientKey])) {
+            $ticket->setClient($clients[$clientKey]);
+            $clientAssigned = true;
         }
 
-        $dueDate = $this->parseApiDate($data['end_date'] ?? null);
-        if ($dueDate !== null) {
-            $ticket->setDueDate($dueDate);
-        }
-
-        $ticket->setCloseDate($this->parseApiDate($data['close_date'] ?? null));
-
-        $clientId = $data['client_natural_person_id'] ?? null;
-        if ($clientId && isset($clients[(string) $clientId])) {
-            $ticket->setClient($clients[(string) $clientId]);
+        if ($isNewTicket && !$clientAssigned) {
+            throw new RuntimeException(sprintf(
+                'Не найден клиент для нового билета %s (client_natural_person_id=%s, client_legal_person_id=%s)',
+                $ticketNumber,
+                (string) ($data['client_natural_person_id'] ?? 'null'),
+                (string) ($data['client_legal_person_id'] ?? 'null')
+            ));
         }
 
         $this->entityManager->persist($ticket);
@@ -344,7 +406,7 @@ class DataSyncService
 
         if ($pawnTicketId === null) {
             $resolvedTicketId = $this->apiService->resolvePawnTicketId(
-                (int) $workplace->getExternalId(),
+                (int) $workplace->getId(),
                 $ticketNumber,
                 isset($data['pawn_chain_id']) && is_numeric((string) $data['pawn_chain_id'])
                     ? (int) $data['pawn_chain_id']
@@ -372,13 +434,39 @@ class DataSyncService
                         'ticket_number' => $ticketNumber
                     ]);
                 } else {
-                    $existingGoods = array_values($ticket->getPawnGoods()->toArray());
+                    $existingGoodsByExternalId = [];
+                    $legacyGoods = [];
+
+                    foreach ($ticket->getPawnGoods() as $existingGood) {
+                        $goodExternalId = $existingGood->getExternalId();
+                        if ($goodExternalId !== null) {
+                            $existingGoodsByExternalId[$goodExternalId][] = $existingGood;
+                            continue;
+                        }
+
+                        $legacyGoods[] = $existingGood;
+                    }
+
+                    $syncedExternalIds = [];
                     $addedCount = 0;
 
-                    foreach ($goods as $index => $goodData) {
+                    foreach ($goods as $goodData) {
                         try {
-                            $existingGood = $existingGoods[$index] ?? null;
+                            $goodExternalId = $this->extractNumericValue($goodData, ['id']);
+                            $existingGood = null;
+
+                            if ($goodExternalId !== null && !empty($existingGoodsByExternalId[$goodExternalId])) {
+                                $existingGood = array_shift($existingGoodsByExternalId[$goodExternalId]);
+                            } elseif ($goodExternalId === null) {
+                                $existingGood = array_shift($legacyGoods);
+                            }
+
                             $this->syncPawnGood($ticket, $goodData, $existingGood);
+
+                            if ($goodExternalId !== null) {
+                                $syncedExternalIds[$goodExternalId] = true;
+                            }
+
                             $stats['items_synced']++;
                             $addedCount++;
                         } catch (Exception $goodError) {
@@ -395,8 +483,21 @@ class DataSyncService
                         }
                     }
 
-                    for ($index = count($goods); $index < count($existingGoods); $index++) {
-                        $ticket->removePawnGood($existingGoods[$index]);
+                    foreach ($ticket->getPawnGoods()->toArray() as $existingGood) {
+                        $goodExternalId = $existingGood->getExternalId();
+                        if ($goodExternalId !== null) {
+                            if (!isset($syncedExternalIds[$goodExternalId])
+                                || in_array($existingGood, $existingGoodsByExternalId[$goodExternalId] ?? [], true)
+                            ) {
+                                $ticket->removePawnGood($existingGood);
+                            }
+
+                            continue;
+                        }
+
+                        if (in_array($existingGood, $legacyGoods, true)) {
+                            $ticket->removePawnGood($existingGood);
+                        }
                     }
                     
                     $this->logger->info('Синхронизировано предметов для билета', [
@@ -438,16 +539,19 @@ class DataSyncService
         }
     }
 
-    private function syncClient(array $data, array &$stats, array &$existingClients): Client
+    private function syncClient(string $clientKey, array $data, array &$stats, array &$existingClients): Client
     {
         $externalId = (int) $data['id'];
-        $client = $existingClients[$externalId] ?? null;
+        [$clientType] = explode(':', $clientKey, 2);
+        $client = $existingClients[$clientKey] ?? null;
 
         if (!$client) {
-            $client = new Client();
+            $client = $clientType === self::CLIENT_TYPE_LEGAL_PERSON
+                ? new LegalPerson()
+                : new NaturalPerson();
             $client->setExternalId($externalId);
             $stats['clients_created']++;
-            $existingClients[$externalId] = $client;
+            $existingClients[$clientKey] = $client;
         } else {
             $stats['clients_updated']++;
         }
@@ -457,7 +561,36 @@ class DataSyncService
             ->setPatronymic($data['patronymic'] ?? null)
             ->setPhone($data['phone'] ?? null)
             ->setEmail($data['email'] ?? null)
+            ->setInn($data['inn'] ?? null)
+            ->setDateAdded($this->parseApiDate($data['date_added'] ?? null))
             ->setUpdatedAt(new DateTime());
+
+        if ($client instanceof NaturalPerson) {
+            $client->setBirthDate($this->parseApiDate($data['birth_date'] ?? null))
+                ->setAddress($data['address'] ?? null)
+                ->setActualAddress($data['actual_address'] ?? null)
+                ->setPlaceOfBirth($data['place_of_birth'] ?? null)
+                ->setPhotoLink($this->normalizeArrayValue($data['photo_link'] ?? null))
+                ->setNationality($this->extractNumericValue($data, ['nationality']))
+                ->setSnils($data['snils'] ?? null)
+                ->setAdditionalInfo($data['additional_info'] ?? null)
+                ->setWarningMessage($data['warning_message'] ?? null)
+                ->setLoyaltyCardNumber($data['loyalty_card_number'] ?? null)
+                ->setLoyaltyCardDiscount($this->normalizeArrayValue($data['loyalty_card_discount'] ?? null))
+                ->setBonuses((int) ($data['bonuses'] ?? 0))
+                ->setAdChannelId($this->extractNumericValue($data, ['ad_channel_id']));
+        }
+
+        if ($client instanceof LegalPerson) {
+            $client->setLegalAddress($data['legal_address'] ?? null)
+                ->setDirectorFio($data['director_fio'] ?? null)
+                ->setChiefAccountantFio($data['chief_accountant_fio'] ?? null)
+                ->setKpp($data['kpp'] ?? null)
+                ->setOgrn($data['ogrn'] ?? null)
+                ->setOkpo($data['okpo'] ?? null)
+                ->setOktmo($data['oktmo'] ?? null)
+                ->setAdChannelId($this->extractNumericValue($data, ['ad_channel_id']));
+        }
 
         $this->entityManager->persist($client);
 
@@ -472,41 +605,43 @@ class DataSyncService
         }
 
         $good->setPawnTicket($ticket)
+            ->setExternalId($this->extractNumericValue($data, ['id']))
+            ->setArticle($this->extractNumericValue($data, ['article']))
             ->setName($data['name'] ?? 'Без названия')
+            ->setSerialNumber($data['serial_number'] ?? null)
             ->setDescription($data['description'] ?? null)
-            ->setEstimatedValue((string) ($data['estimate_price'] ?? '0'));
+            ->setEstimatedValue($this->normalizeDecimalValue($data['estimate_price'] ?? null, 10, 2) ?? '0.00')
+            ->setCurrency($this->resolveCurrency($data['currency_code'] ?? null))
+            ->setWorkplace($ticket->getWorkplace())
+            ->setStorage($data['storage'] ?? null)
+            ->setStatus((int) ($data['status'] ?? 0))
+            ->setTestOperation($data['test_operation'] ?? false)
+            ->setComment($data['comment'] ?? null)
+            ->setImagesLinks($this->normalizeArrayValue($data['images_links'] ?? null))
+            ->setJewelryExtra($this->normalizeArrayValue($data['jewelry_extra'] ?? null))
+            ->setVehicleExtra($this->normalizeArrayValue($data['vehicle_extra'] ?? null));
 
         if (!empty($data['type'])) {
             $apiType = (string) $data['type'];
-            $goodType = self::GOODS_TYPE_MAPPING[$apiType] ?? 'other';
+            $goodType = self::GOODS_TYPES[$apiType] ?? self::DEFAULT_CATEGORY_CODE;
             $good->setGoodType($goodType);
         } else {
-            $good->setGoodType('other');
+            $good->setGoodType(self::DEFAULT_CATEGORY_CODE);
         }
 
         if (!empty($data['category_id'])) {
-            $category = $this->categoryRepository->findOneBy(['externalId' => (int) $data['category_id']]);
+            $category = $this->categoryRepository->findById((int) $data['category_id']);
             if ($category) {
                 $good->setCategory($category);
             } else {
-                $this->logger->warning('Категория не найдена по externalId', [
+                $this->logger->warning('Категория не найдена по id', [
                     'category_id' => $data['category_id'],
                     'good_name' => $data['name'] ?? 'unknown'
                 ]);
-                $defaultCategory = $this->categoryRepository->findOneBy(['code' => 'other']);
-                if ($defaultCategory) {
-                    $good->setCategory($defaultCategory);
-                } else {
-                    throw new RuntimeException('Стандартная категория "Прочее" не найдена в системе');
-                }
+                $good->setCategory($this->getFallbackCategory());
             }
         } else {
-            $defaultCategory = $this->categoryRepository->findOneBy(['code' => 'other']);
-            if ($defaultCategory) {
-                $good->setCategory($defaultCategory);
-            } else {
-                throw new RuntimeException('Стандартная категория "Прочое" не найдена в системе');
-            }
+            $good->setCategory($this->getFallbackCategory());
         }
 
         $this->entityManager->persist($good);
@@ -551,6 +686,127 @@ class DataSyncService
         }
 
         return null;
+    }
+
+    private function normalizeArrayValue(mixed $value): ?array
+    {
+        return is_array($value) ? $value : null;
+    }
+
+    private function ensureFallbackCategory(): PawnGoodCategory
+    {
+        $category = $this->categoryRepository->findById(self::DEFAULT_CATEGORY_ID)
+            ?? $this->categoryRepository->findOneBy(['code' => self::DEFAULT_CATEGORY_CODE]);
+
+        if (!$category) {
+            $category = new PawnGoodCategory();
+            $category->setId(self::DEFAULT_CATEGORY_ID);
+        }
+
+        $category->setCode(self::DEFAULT_CATEGORY_CODE)
+            ->setName('Прочее')
+            ->setDescription('Fallback категория для имущества без известной категории из API')
+            ->setSystemCategory(true);
+
+        $this->entityManager->persist($category);
+
+        return $category;
+    }
+
+    private function getFallbackCategory(): PawnGoodCategory
+    {
+        $category = $this->categoryRepository->findById(self::DEFAULT_CATEGORY_ID)
+            ?? $this->categoryRepository->findOneBy(['code' => self::DEFAULT_CATEGORY_CODE]);
+
+        if ($category) {
+            return $category;
+        }
+
+        return $this->ensureFallbackCategory();
+    }
+
+    private function buildClientKey(string $clientType, int $clientId): string
+    {
+        return sprintf('%s:%d', $clientType, $clientId);
+    }
+
+    private function resolveTicketClientKey(array $ticketData): ?string
+    {
+        if (!empty($ticketData['client_natural_person_id'])) {
+            return $this->buildClientKey(
+                self::CLIENT_TYPE_NATURAL_PERSON,
+                (int) $ticketData['client_natural_person_id']
+            );
+        }
+
+        if (!empty($ticketData['client_legal_person_id'])) {
+            return $this->buildClientKey(
+                self::CLIENT_TYPE_LEGAL_PERSON,
+                (int) $ticketData['client_legal_person_id']
+            );
+        }
+
+        return null;
+    }
+
+    private function collectClientRefsByType(array $clientsData): array
+    {
+        $clientRefs = [
+            self::CLIENT_TYPE_NATURAL_PERSON => [],
+            self::CLIENT_TYPE_LEGAL_PERSON => [],
+        ];
+
+        foreach (array_keys($clientsData) as $clientKey) {
+            [$clientType, $clientId] = explode(':', (string) $clientKey, 2);
+
+            if (isset($clientRefs[$clientType]) && is_numeric($clientId)) {
+                $clientRefs[$clientType][] = (int) $clientId;
+            }
+        }
+
+        return $clientRefs;
+    }
+
+    private function resolveCurrency(mixed $currencyCode): ?Currency
+    {
+        return $this->currencyRepository->getOrCreateByCode(
+            is_string($currencyCode) ? $currencyCode : null
+        );
+    }
+
+    private function normalizeDecimalValue(mixed $value, int $precision, int $scale): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $normalized = str_replace(',', '.', trim((string) $value));
+        if (!is_numeric($normalized)) {
+            return null;
+        }
+
+        $number = (float) $normalized;
+        $maxIntegerPart = (10 ** ($precision - $scale)) - (10 ** (-$scale));
+
+        if ($number > $maxIntegerPart) {
+            $this->logger->warning('Ограничение decimal-значения по precision/scale', [
+                'input' => $normalized,
+                'precision' => $precision,
+                'scale' => $scale,
+                'clamped_to' => $maxIntegerPart,
+            ]);
+            $number = $maxIntegerPart;
+        } elseif ($number < -$maxIntegerPart) {
+            $this->logger->warning('Ограничение decimal-значения по precision/scale', [
+                'input' => $normalized,
+                'precision' => $precision,
+                'scale' => $scale,
+                'clamped_to' => -$maxIntegerPart,
+            ]);
+            $number = -$maxIntegerPart;
+        }
+
+        return number_format($number, $scale, '.', '');
     }
 
 }
